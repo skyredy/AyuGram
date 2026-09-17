@@ -12,6 +12,7 @@ import ItemListPeerItem
 import DeviceAccess
 import TelegramStringFormatting
 import PeerNameColorItem
+import SettingsUI
 
 enum SettingsSection: Int, CaseIterable {
     case edit
@@ -25,19 +26,6 @@ enum SettingsSection: Int, CaseIterable {
     case payment
     case extra
     case support
-}
-
-private enum AyuGramGhostMode {
-    private static let defaultsKey = "AyuGram_GhostModeEnabled"
-
-    static var isEnabled: Bool {
-        get {
-            return UserDefaults.standard.bool(forKey: defaultsKey)
-        }
-        set {
-            UserDefaults.standard.set(newValue, forKey: defaultsKey)
-        }
-    }
 }
 
 func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentationData: PresentationData, interaction: PeerInfoInteraction, isExpanded: Bool) -> [(AnyHashable, [PeerInfoScreenItem])] {
@@ -168,8 +156,8 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
             interaction.openSettings(.ayuGramSettings)
         }))
 
-        items[.myProfile]!.append(PeerInfoScreenActionItem(id: 2, text: AyuGramGhostMode.isEnabled ? "Выключить призрак" : "Включить призрак", icon: PresentationResourcesSettings.ayuGramGhost, action: {
-            AyuGramGhostMode.isEnabled.toggle()
+        items[.myProfile]!.append(PeerInfoScreenActionItem(id: 2, text: AyuGramSettings.ghostModeEnabled ? "Выключить призрак" : "Включить призрак", icon: PresentationResourcesSettings.ayuGramGhost, action: {
+            AyuGramSettings.ghostModeEnabled = !AyuGramSettings.ghostModeEnabled
             interaction.requestLayout(true)
         }))
 
