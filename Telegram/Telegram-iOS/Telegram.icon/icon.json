@@ -15,12 +15,6 @@
               "value" : "normal"
             }
           ],
-          "fill-specializations" : [
-            {
-              "appearance" : "dark",
-              "value" : "automatic"
-            }
-          ],
           "glass" : true,
           "image-name" : "Plane.svg",
           "name" : "Plane",
@@ -51,15 +45,15 @@
             {
               "value" : {
                 "linear-gradient" : [
-                  "display-p3:0.68627,0.32157,0.87059,1.00000",
-                  "srgb:0.68627,0.32157,0.87059,1.00000"
+                  "display-p3:0.00000,0.00000,0.00000,1.00000",
+                  "srgb:0.00000,0.00000,0.00000,1.00000"
                 ]
               }
             },
             {
               "appearance" : "dark",
               "value" : {
-                "automatic-gradient" : "srgb:0.68627,0.32157,0.87059,1.00000"
+                "automatic-gradient" : "srgb:0.00000,0.00000,0.00000,1.00000"
               }
             }
           ],
