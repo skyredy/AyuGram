@@ -27,6 +27,19 @@ enum SettingsSection: Int, CaseIterable {
     case support
 }
 
+private enum AyuGramGhostMode {
+    private static let defaultsKey = "AyuGram_GhostModeEnabled"
+
+    static var isEnabled: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: defaultsKey)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: defaultsKey)
+        }
+    }
+}
+
 func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentationData: PresentationData, interaction: PeerInfoInteraction, isExpanded: Bool) -> [(AnyHashable, [PeerInfoScreenItem])] {
     guard let data = data else {
         return []
@@ -150,7 +163,16 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
         items[.myProfile]!.append(PeerInfoScreenDisclosureItem(id: 0, text: presentationData.strings.Settings_MyProfile, icon: PresentationResourcesSettings.myProfile, action: {
             interaction.openSettings(.profile)
         }))
-        
+
+        items[.myProfile]!.append(PeerInfoScreenDisclosureItem(id: 1, text: "Настройки AyuGram", icon: PresentationResourcesSettings.ayuGramSettings, action: {
+            interaction.openSettings(.ayuGramSettings)
+        }))
+
+        items[.myProfile]!.append(PeerInfoScreenActionItem(id: 2, text: AyuGramGhostMode.isEnabled ? "Выключить призрак" : "Включить призрак", icon: PresentationResourcesSettings.ayuGramGhost, action: {
+            AyuGramGhostMode.isEnabled.toggle()
+            interaction.requestLayout(true)
+        }))
+
         if !settings.proxySettings.servers.isEmpty {
             let proxyType: String
             if settings.proxySettings.enabled, let activeServer = settings.proxySettings.activeServer {
