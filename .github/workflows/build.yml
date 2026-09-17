@@ -6,9 +6,6 @@ on:
 
   workflow_dispatch:
 
-permissions:
-  contents: write
-
 jobs:
   build:
     runs-on: macos-26
@@ -119,19 +116,11 @@ jobs:
           path: /Users/Shared/bazel-disk-cache
           key: bazel-disk-cache-${{ runner.os }}-${{ github.run_id }}
 
-      - name: Create Release
-        uses: softprops/action-gh-release@v2
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
         with:
-          tag_name: build-${{ env.BUILD_NUMBER }}
-          name: AyuGram ${{ env.APP_VERSION }} (${{ env.BUILD_NUMBER }})
-          body: |
-            An unsigned (fake-codesigned) build of AyuGram for iOS ${{ env.APP_VERSION }} (${{ env.BUILD_NUMBER }})
-          draft: false
-          prerelease: false
-          files: /Users/Shared/ayugram-ios/build/artifacts/AyuGram.ipa
-
-      - name: Attach DSYM
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: build-${{ env.BUILD_NUMBER }}
-          files: /Users/Shared/ayugram-ios/build/artifacts/AyuGram.DSYMs.zip
+          name: AyuGram-${{ env.APP_VERSION }}-${{ env.BUILD_NUMBER }}
+          path: |
+            /Users/Shared/ayugram-ios/build/artifacts/AyuGram.ipa
+            /Users/Shared/ayugram-ios/build/artifacts/AyuGram.DSYMs.zip
+          retention-days: 30
