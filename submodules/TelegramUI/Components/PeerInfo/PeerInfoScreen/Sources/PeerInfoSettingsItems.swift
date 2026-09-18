@@ -19,6 +19,7 @@ enum SettingsSection: Int, CaseIterable {
     case phone
     case accounts
     case myProfile
+    case ayuGram
     case proxy
     case apps
     case shortcuts
@@ -152,11 +153,11 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
             interaction.openSettings(.profile)
         }))
 
-        items[.myProfile]!.append(PeerInfoScreenDisclosureItem(id: 1, text: "Настройки AyuGram", icon: PresentationResourcesSettings.ayuGramSettings, action: {
+        items[.ayuGram]!.append(PeerInfoScreenDisclosureItem(id: 0, text: "Настройки AyuGram", icon: PresentationResourcesSettings.ayuGramSettings, action: {
             interaction.openSettings(.ayuGramSettings)
         }))
 
-        items[.myProfile]!.append(PeerInfoScreenActionItem(id: 2, text: AyuGramSettings.ghostModeEnabled ? "Выключить призрак" : "Включить призрак", icon: PresentationResourcesSettings.ayuGramGhost, action: {
+        items[.ayuGram]!.append(PeerInfoScreenActionItem(id: 1, text: AyuGramSettings.ghostModeEnabled ? "Выключить призрак" : "Включить призрак", icon: PresentationResourcesSettings.ayuGramGhost, action: {
             AyuGramSettings.ghostModeEnabled = !AyuGramSettings.ghostModeEnabled
             interaction.requestLayout(true)
         }))
