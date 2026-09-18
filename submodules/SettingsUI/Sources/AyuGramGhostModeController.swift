@@ -5,7 +5,7 @@ import AsyncDisplayKit
 import AccountContext
 import TelegramPresentationData
 
-private final class AyuGramSwitchCell: UITableViewCell {
+final class AyuGramSwitchCell: UITableViewCell {
     let switchView: UISwitch
     var onChange: ((Bool) -> Void)?
 

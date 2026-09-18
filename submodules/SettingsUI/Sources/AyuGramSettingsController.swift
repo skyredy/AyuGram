@@ -247,7 +247,7 @@ public final class AyuGramSettingsController: ViewController {
                 guard let self else {
                     return
                 }
-                self.pushController(ayuGramEmptyController(context: self.context, title: "Customization"))
+                self.pushController(ayuGramCustomizationController(context: self.context))
             })
         ])
 

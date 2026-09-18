@@ -1,4 +1,5 @@
 import Foundation
+import UIKit
 
 public enum AyuGramSendWithoutSound: Int {
     case never
@@ -26,7 +27,23 @@ public enum AyuGramSettings {
         case scheduleMessages = "AyuGram_ScheduleMessages"
         case sendWithoutSound = "AyuGram_SendWithoutSound"
         case suggestGhostForStories = "AyuGram_SuggestGhostForStories"
+        case translucentDeletedMessages = "AyuGram_TranslucentDeletedMessages"
+        case deletedMarkColorIndex = "AyuGram_DeletedMarkColorIndex"
+        case localPremium = "AyuGram_LocalPremium"
+        case disableAds = "AyuGram_DisableAds"
+        case displayGhostModeStatus = "AyuGram_DisplayGhostModeStatus"
     }
+
+    public static let deletedMarkColors: [UIColor] = [
+        UIColor(white: 0.6, alpha: 1.0),
+        UIColor(red: 1.0, green: 0.23, blue: 0.19, alpha: 1.0),
+        UIColor(red: 0.85, green: 0.16, blue: 0.24, alpha: 1.0),
+        UIColor(red: 0.90, green: 0.18, blue: 0.47, alpha: 1.0),
+        UIColor(red: 0.80, green: 0.20, blue: 0.85, alpha: 1.0),
+        UIColor(red: 0.58, green: 0.28, blue: 0.90, alpha: 1.0),
+        UIColor(red: 0.32, green: 0.28, blue: 0.90, alpha: 1.0),
+        UIColor(red: 0.13, green: 0.45, blue: 0.95, alpha: 1.0)
+    ]
 
     public static var ghostModeEnabled: Bool {
         get {
@@ -121,6 +138,61 @@ public enum AyuGramSettings {
         }
         set {
             UserDefaults.standard.set(newValue, forKey: Key.suggestGhostForStories.rawValue)
+        }
+    }
+
+    public static var translucentDeletedMessages: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: Key.translucentDeletedMessages.rawValue) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: Key.translucentDeletedMessages.rawValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.translucentDeletedMessages.rawValue)
+        }
+    }
+
+    public static var deletedMarkColorIndex: Int {
+        get {
+            return min(max(UserDefaults.standard.integer(forKey: Key.deletedMarkColorIndex.rawValue), 0), deletedMarkColors.count - 1)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.deletedMarkColorIndex.rawValue)
+        }
+    }
+
+    public static var deletedMarkColor: UIColor {
+        return deletedMarkColors[deletedMarkColorIndex]
+    }
+
+    public static var localPremium: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: Key.localPremium.rawValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.localPremium.rawValue)
+        }
+    }
+
+    public static var disableAds: Bool {
+        get {
+            if UserDefaults.standard.object(forKey: Key.disableAds.rawValue) == nil {
+                return true
+            }
+            return UserDefaults.standard.bool(forKey: Key.disableAds.rawValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.disableAds.rawValue)
+        }
+    }
+
+    public static var displayGhostModeStatus: Bool {
+        get {
+            return UserDefaults.standard.bool(forKey: Key.displayGhostModeStatus.rawValue)
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: Key.displayGhostModeStatus.rawValue)
         }
     }
 
