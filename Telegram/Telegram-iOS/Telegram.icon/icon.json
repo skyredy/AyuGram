@@ -15,65 +15,14 @@
               "value" : "normal"
             }
           ],
-          "glass" : true,
-          "image-name" : "Plane.svg",
-          "name" : "Plane",
+          "glass" : false,
+          "image-name" : "AyuGramIcon.png",
+          "name" : "AyuGram",
           "position-specializations" : [
             {
               "idiom" : "watchOS",
               "value" : {
-                "scale" : 1.35,
-                "translation-in-points" : [
-                  0,
-                  0
-                ]
-              }
-            }
-          ]
-        },
-        {
-          "blend-mode-specializations" : [
-            {
-              "value" : "normal"
-            },
-            {
-              "appearance" : "dark",
-              "value" : "normal"
-            }
-          ],
-          "fill-specializations" : [
-            {
-              "value" : {
-                "linear-gradient" : [
-                  "display-p3:0.00000,0.00000,0.00000,1.00000",
-                  "srgb:0.00000,0.00000,0.00000,1.00000"
-                ]
-              }
-            },
-            {
-              "appearance" : "dark",
-              "value" : {
-                "automatic-gradient" : "srgb:0.00000,0.00000,0.00000,1.00000"
-              }
-            }
-          ],
-          "glass" : true,
-          "hidden-specializations" : [
-            {
-              "value" : false
-            },
-            {
-              "idiom" : "watchOS",
-              "value" : false
-            }
-          ],
-          "image-name" : "Oval.svg",
-          "name" : "Oval",
-          "position-specializations" : [
-            {
-              "idiom" : "watchOS",
-              "value" : {
-                "scale" : 2,
+                "scale" : 1,
                 "translation-in-points" : [
                   0,
                   0
@@ -84,23 +33,11 @@
         }
       ],
       "lighting" : "combined",
-      "position-specializations" : [
-        {
-          "idiom" : "watchOS",
-          "value" : {
-            "scale" : 1,
-            "translation-in-points" : [
-              0,
-              0
-            ]
-          }
-        }
-      ],
       "shadow" : {
         "kind" : "layer-color",
         "opacity" : 1
       },
-      "specular" : true,
+      "specular" : false,
       "translucency" : {
         "enabled" : false,
         "value" : 1
