@@ -4440,29 +4440,129 @@ func replayFinalState(
                     }
                 }
             case let .DeleteMessagesWithGlobalIds(ids):
-                var resourceIds: [MediaResourceId] = []
-                transaction.deleteMessagesWithGlobalIds(ids, forEachMedia: { media in
-                    addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
-                })
-                if !resourceIds.isEmpty {
-                    let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+                // AYG: the main anti-delete interception. Every id the archive
+                // claims is dropped from the hard-delete list and marked in place
+                // instead; only what anti-delete declines still gets deleted.
+                var globalIdsToDelete: [Int32] = []
+                var deletedGlobalIdsForState: [Int32] = []
+                let interceptDeletions = AntiDeleteManager.shared.isDeletionInterceptionActive
+                // Inside an app extension (which cannot write the main app's
+                // archive) capture is deferred: mark the message in the shared
+                // postbox and journal it, but never hard-delete — getDifference
+                // advances pts, so the main app would never see the delete again.
+                let deferExtensionDelete = AntiDeleteManager.shared.shouldDeferExtensionCloudDelete
+                for globalId in ids {
+                    if !interceptDeletions {
+                        globalIdsToDelete.append(globalId)
+                        deletedGlobalIdsForState.append(globalId)
+                    } else if let messageId = transaction.messageIdsForGlobalIds([globalId]).first,
+                       let message = transaction.getMessage(messageId) {
+                        // Already kept — skip regardless of the current settings.
+                        if aygIsAntiDeleteProtectedMessage(message) {
+                            continue
+                        }
+                        if deferExtensionDelete && messageId.namespace == Namespaces.Message.Cloud {
+                            aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: globalId, mediaBox: mediaBox)
+                            continue
+                        }
+                        if !aygShouldKeepDeletedMessageLocally(message) ||
+                           !aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: globalId, mediaBox: mediaBox) {
+                            globalIdsToDelete.append(globalId)
+                            deletedGlobalIdsForState.append(globalId)
+                        }
+                    } else {
+                        globalIdsToDelete.append(globalId)
+                        deletedGlobalIdsForState.append(globalId)
+                    }
                 }
-                deletedMessageIds.append(contentsOf: ids.map { .global($0) })
+                if !globalIdsToDelete.isEmpty {
+                    var resourceIds: [MediaResourceId] = []
+                    transaction.deleteMessagesWithGlobalIds(globalIdsToDelete, forEachMedia: { media in
+                        addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
+                    })
+                    if !resourceIds.isEmpty {
+                        let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+                    }
+                }
+                deletedMessageIds.append(contentsOf: deletedGlobalIdsForState.map { .global($0) })
             case let .DeleteMessages(ids):
-                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: ids, manualAddMessageThreadStatsDifference: { id, add, remove in
-                    addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
-                })
-                deletedMessageIds.append(contentsOf: ids.map { .messageId($0) })
+                // AYG: see .DeleteMessagesWithGlobalIds — same interception, for
+                // updates that name messages by id rather than by global id.
+                var idsToDelete: [MessageId] = []
+                let deferExtensionDeleteForMessages = AntiDeleteManager.shared.shouldDeferExtensionCloudDelete
+                let interceptDeletions = AntiDeleteManager.shared.isDeletionInterceptionActive
+                for messageId in ids {
+                    guard interceptDeletions else {
+                        idsToDelete.append(messageId)
+                        continue
+                    }
+                    guard let message = transaction.getMessage(messageId) else {
+                        idsToDelete.append(messageId)
+                        continue
+                    }
+                    if aygIsAntiDeleteProtectedMessage(message) {
+                        continue
+                    }
+                    if deferExtensionDeleteForMessages && messageId.namespace == Namespaces.Message.Cloud {
+                        aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: nil, mediaBox: mediaBox)
+                        continue
+                    }
+                    guard aygShouldKeepDeletedMessageLocally(message) else {
+                        idsToDelete.append(messageId)
+                        continue
+                    }
+                    if !aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: nil, mediaBox: mediaBox) {
+                        idsToDelete.append(messageId)
+                    }
+                }
+                if !idsToDelete.isEmpty {
+                    _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete, manualAddMessageThreadStatsDifference: { id, add, remove in
+                        addMessageThreadStatsDifference(threadKey: id, remove: remove, addedMessagePeer: nil, addedMessageId: nil, isOutgoing: false)
+                    })
+                }
+                deletedMessageIds.append(contentsOf: idsToDelete.map { .messageId($0) })
             case let .UpdateMinAvailableMessage(id):
                 if let message = transaction.getMessage(id) {
                     updatePeerChatInclusionWithMinTimestamp(transaction: transaction, id: id.peerId, minTimestamp: message.timestamp, forceRootGroupIfNotExists: false)
                 }
-                var resourceIds: [MediaResourceId] = []
-                transaction.deleteMessagesInRange(peerId: id.peerId, namespace: id.namespace, minId: 1, maxId: id.id, forEachMedia: { media in
-                    addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
-                })
-                if !resourceIds.isEmpty {
-                    let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+                // AYG: `deleteMessagesInRange` is a blind range wipe — it would
+                // take kept messages with it. When the range holds any, delete the
+                // rest one by one instead (media still purged, since the server
+                // says those messages are unavailable).
+                var hasAntiDeleteProtectedMessages = false
+                var idsToDelete: [MessageId] = []
+                if AntiDeleteManager.shared.hasAnyKeptMessages {
+                    transaction.withAllMessages(peerId: id.peerId, namespace: id.namespace, { message in
+                        guard message.id.id >= 1 && message.id.id <= id.id else {
+                            return true
+                        }
+                        if aygIsAntiDeleteProtectedMessage(message) {
+                            hasAntiDeleteProtectedMessages = true
+                        } else {
+                            idsToDelete.append(message.id)
+                        }
+                        return true
+                    })
+                }
+                if hasAntiDeleteProtectedMessages {
+                    var resourceIds: [MediaResourceId] = []
+                    for messageId in idsToDelete {
+                        if let message = transaction.getMessage(messageId) {
+                            addMessageMediaResourceIdsToRemove(message: message, resourceIds: &resourceIds)
+                        }
+                    }
+                    _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete, deleteMedia: false)
+                    if !resourceIds.isEmpty {
+                        let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+                    }
+                } else {
+                    var resourceIds: [MediaResourceId] = []
+                    transaction.deleteMessagesInRange(peerId: id.peerId, namespace: id.namespace, minId: 1, maxId: id.id, forEachMedia: { media in
+                        addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
+                    })
+                    if !resourceIds.isEmpty {
+                        let _ = mediaBox.removeCachedResources(Array(Set(resourceIds)), force: true).start()
+                    }
                 }
             case let .UpdatePeerChatInclusion(peerId, groupId, changedGroup):
                 if shouldExcludePeerFromChatList(transaction: transaction, peerId: peerId) {
@@ -4514,8 +4614,18 @@ func replayFinalState(
                                 updatedAttributes.append(translation)
                             }
                         }
+                    } else if aygShouldSaveEditHistory(transaction: transaction, messageId: id, previousMessage: previousMessage) {
+                        // AYG: "Save Edits History". This is the only moment the
+                        // pre-edit text still exists — the update below overwrites
+                        // it in the same transaction.
+                        EditHistoryManager.shared.saveOriginalText(
+                            peerId: id.peerId.toInt64(),
+                            messageId: id.id,
+                            originalText: previousMessage.text,
+                            editDate: Int32(Date().timeIntervalSince1970)
+                        )
                     }
-                    
+
                     if let previousFactCheckAttribute = previousMessage.attributes.first(where: { $0 is FactCheckMessageAttribute }) as? FactCheckMessageAttribute, let updatedFactCheckAttribute = message.attributes.first(where: { $0 is FactCheckMessageAttribute }) as? FactCheckMessageAttribute {
                         if case .Pending = updatedFactCheckAttribute.content, updatedFactCheckAttribute.hash == previousFactCheckAttribute.hash {
                             updatedAttributes.removeAll(where: { $0 is FactCheckMessageAttribute })
@@ -4593,6 +4703,10 @@ func replayFinalState(
                 transaction.applyIncomingReadMaxId(messageId)
             case let .ReadOutbox(messageId, timestamp):
                 transaction.applyOutgoingReadMaxId(messageId)
+                // AYG: "Save Read Date". Telegram only exposes a read date when
+                // both sides allow it; this records our own watermark so the
+                // client can answer even when the server will not.
+                aygRecordOutgoingRead(messageId: messageId, timestamp: timestamp)
                 if messageId.peerId != accountPeerId, messageId.peerId.namespace == Namespaces.Peer.CloudUser, let timestamp = timestamp {
                     recordPeerActivityTimestamp(peerId: messageId.peerId, timestamp: timestamp, into: &peerActivityTimestamps)
                 }
@@ -5680,6 +5794,11 @@ func replayFinalState(
     }
     
     if !peerActivityTimestamps.isEmpty {
+        // AYG: "Save Last Seen Date". Upstream writes these into
+        // TelegramUserPresence.lastActivity, which the next presence update from
+        // the server replaces wholesale — so mirror them somewhere durable, for
+        // the users whose real last-seen is hidden.
+        aygRecordPeerActivityTimestamps(transaction: transaction, accountPeerId: accountPeerId, activities: peerActivityTimestamps)
         updatePeerPresenceLastActivities(transaction: transaction, accountPeerId: accountPeerId, activities: peerActivityTimestamps)
     }
     

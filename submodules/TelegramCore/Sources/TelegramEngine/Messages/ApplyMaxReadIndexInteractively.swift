@@ -334,3 +334,138 @@ func _internal_markAllChatsAsReadInteractively(transaction: Transaction, network
         _internal_togglePeerUnreadMarkInteractively(transaction: transaction, network: network, viewTracker: viewTracker, peerId: peerId, setToValue: false)
     }
 }
+
+// AYG: "Mark as Read" — the context-menu action that exists because Ghost Mode
+// suppresses read receipts. Local read state races ahead regardless (the chat has
+// to look read to its own owner), so this cannot go through
+// `_internal_applyMaxReadIndexInteractively`: that only touches the postbox, and
+// the outgoing receipt is exactly the part Ghost Mode blocks. Instead this sends
+// the read call to the server directly, up to and including `index`, and records
+// the new server watermark so the menu entry disappears afterwards.
+//
+// Ported from the user's other fork. One thing changed on the way: it keyed the
+// Ghost Mode tracking on the bare `peerId.id`, while every hook in this tree keys
+// on `peerId.toInt64()`. Keeping the original would have written watermarks that
+// `SynchronizePeerReadState` could never match.
+private enum AYGExplicitReadReceiptTarget {
+    case cloudPeer(Api.InputPeer)
+    case cloudChannel(Api.InputChannel)
+    case secretChat(Api.InputEncryptedChat)
+    case discussion(peer: Api.InputPeer, threadId: Int64)
+    case savedHistory(parentPeer: Api.InputPeer, peer: Api.InputPeer)
+}
+
+func _internal_aygSendExplicitReadReceipt(account: Account, index: MessageIndex, threadId: Int64?) -> Signal<Never, NoError> {
+    return account.postbox.transaction { transaction -> AYGExplicitReadReceiptTarget? in
+        guard let peer = transaction.getPeer(index.id.peerId) else {
+            return nil
+        }
+
+        if let threadId {
+            guard let inputPeer = apiInputPeer(peer) else {
+                return nil
+            }
+            if let channel = peer as? TelegramChannel, channel.flags.contains(.isMonoforum) {
+                guard let subPeer = transaction.getPeer(PeerId(threadId)).flatMap(apiInputPeer) else {
+                    return nil
+                }
+                return .savedHistory(parentPeer: inputPeer, peer: subPeer)
+            } else {
+                return .discussion(peer: inputPeer, threadId: threadId)
+            }
+        }
+
+        if index.id.peerId.namespace == Namespaces.Peer.SecretChat {
+            guard let inputPeer = apiInputSecretChat(peer) else {
+                return nil
+            }
+            return .secretChat(inputPeer)
+        }
+
+        if let inputChannel = apiInputChannel(peer) {
+            return .cloudChannel(inputChannel)
+        }
+
+        guard let inputPeer = apiInputPeer(peer) else {
+            return nil
+        }
+        return .cloudPeer(inputPeer)
+    }
+    |> mapToSignal { target -> Signal<Never, NoError> in
+        guard let target else {
+            return .complete()
+        }
+
+        let applied: () -> Void = {
+            account.stateManager.notifyAppliedIncomingReadMessages([index.id])
+            AYGGhostModeManager.shared.markSyncedToServer(peerId: index.id.peerId.toInt64(), maxMessageId: index.id.id)
+        }
+
+        switch target {
+        case let .cloudPeer(inputPeer):
+            return account.network.request(Api.functions.messages.readHistory(peer: inputPeer, maxId: index.id.id))
+            |> map(Optional.init)
+            |> `catch` { _ -> Signal<Api.messages.AffectedMessages?, NoError> in
+                return .single(nil)
+            }
+            |> mapToSignal { result -> Signal<Never, NoError> in
+                if let result {
+                    switch result {
+                    case let .affectedMessages(affectedMessagesData):
+                        account.stateManager.addUpdateGroups([.updatePts(pts: affectedMessagesData.pts, ptsCount: affectedMessagesData.ptsCount)])
+                    }
+                    applied()
+                }
+                return .complete()
+            }
+        case let .cloudChannel(inputChannel):
+            return account.network.request(Api.functions.channels.readHistory(channel: inputChannel, maxId: index.id.id))
+            |> map(Optional.init)
+            |> `catch` { _ -> Signal<Api.Bool?, NoError> in
+                return .single(nil)
+            }
+            |> mapToSignal { result -> Signal<Never, NoError> in
+                if result != nil {
+                    applied()
+                }
+                return .complete()
+            }
+        case let .secretChat(inputPeer):
+            return account.network.request(Api.functions.messages.readEncryptedHistory(peer: inputPeer, maxDate: index.timestamp))
+            |> map(Optional.init)
+            |> `catch` { _ -> Signal<Api.Bool?, NoError> in
+                return .single(nil)
+            }
+            |> mapToSignal { result -> Signal<Never, NoError> in
+                if result != nil {
+                    applied()
+                }
+                return .complete()
+            }
+        case let .discussion(inputPeer, threadId):
+            return account.network.request(Api.functions.messages.readDiscussion(peer: inputPeer, msgId: Int32(clamping: threadId), readMaxId: index.id.id))
+            |> map(Optional.init)
+            |> `catch` { _ -> Signal<Api.Bool?, NoError> in
+                return .single(nil)
+            }
+            |> mapToSignal { result -> Signal<Never, NoError> in
+                if result != nil {
+                    applied()
+                }
+                return .complete()
+            }
+        case let .savedHistory(parentPeer, peer):
+            return account.network.request(Api.functions.messages.readSavedHistory(parentPeer: parentPeer, peer: peer, maxId: index.id.id))
+            |> map(Optional.init)
+            |> `catch` { _ -> Signal<Api.Bool?, NoError> in
+                return .single(nil)
+            }
+            |> mapToSignal { result -> Signal<Never, NoError> in
+                if result != nil {
+                    applied()
+                }
+                return .complete()
+            }
+        }
+    }
+}

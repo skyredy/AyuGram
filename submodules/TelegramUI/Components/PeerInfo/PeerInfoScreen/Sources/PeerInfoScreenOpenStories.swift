@@ -129,7 +129,19 @@ extension PeerInfoScreenNode {
                         )
                     }
                 )
-                self.controller?.push(storyContainerScreen)
+                // AYG: Story Ghost Mode Alert. Only this branch is gated — the `fromAvatar`
+                // one above hands off to `openPeerStories`, which asks for itself, and
+                // asking here as well would put two alerts in a row behind "No".
+                aygSuggestGhostModeBeforeStory(context: self.context, cancelled: { [weak self] in
+                    guard let self else {
+                        return
+                    }
+                    if let (expandedStorySetIndicatorTransitionView, _) = self.headerNode.avatarListNode.listContainerNode.expandedStorySetIndicatorTransitionView {
+                        expandedStorySetIndicatorTransitionView.isHidden = false
+                    }
+                }, open: { [weak self] in
+                    self?.controller?.push(storyContainerScreen)
+                })
             })
             
             return

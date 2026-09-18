@@ -110,6 +110,38 @@ func managedSynchronizeConsumeMessageContentOperations(postbox: Postbox, network
 }
 
 private func synchronizeConsumeMessageContents(transaction: Transaction, network: Network, stateManager: AccountStateManager, peerId: PeerId, operation: SynchronizeConsumeMessageContentsOperation) -> Signal<Void, NoError> {
+    // AYG: Ghost Mode — "Don't Read Messages" covers voice notes and round videos too.
+    // The message is already marked consumed locally; dropping the network call is what
+    // keeps the sender's "unlistened" dot in place, exactly as the text read receipt is
+    // withheld in `pushPeerReadState`. Secret chats are suppressed earlier, in
+    // `_internal_markMessageContentAsConsumedInteractively`.
+    //
+    // View-once media is deliberately exempt: not reporting it consumed leaves the
+    // sender's countdown hanging on a message the user has in fact already opened, and
+    // this switch is about read receipts, not about defeating view-once.
+    var aygHasViewOnceMessage = false
+    outer: for messageId in operation.messageIds {
+        if let message = transaction.getMessage(messageId) {
+            for attribute in message.attributes {
+                if let timeoutAttribute = attribute as? AutoremoveTimeoutMessageAttribute, timeoutAttribute.timeout == viewOnceTimeout {
+                    aygHasViewOnceMessage = true
+                    break outer
+                }
+                if let timeoutAttribute = attribute as? AutoclearTimeoutMessageAttribute, timeoutAttribute.timeout == viewOnceTimeout {
+                    aygHasViewOnceMessage = true
+                    break outer
+                }
+            }
+        }
+    }
+    if !aygHasViewOnceMessage {
+        let aygPeerIdInt = peerId.toInt64()
+        if !AYGGhostModeManager.shared.hasReadSyncAllowance(for: aygPeerIdInt),
+           AYGGhostModeManager.shared.shouldHideReadReceipts(forAccount: stateManager.accountPeerId, peerId: aygPeerIdInt) {
+            return .complete()
+        }
+    }
+
     if peerId.namespace == Namespaces.Peer.CloudUser || peerId.namespace == Namespaces.Peer.CloudGroup {
         return network.request(Api.functions.messages.readMessageContents(id: operation.messageIds.map { $0.id }))
         |> map(Optional.init)

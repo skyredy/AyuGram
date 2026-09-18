@@ -39,6 +39,12 @@ public class AdPeer: Equatable {
 }
 
 func _internal_searchAdPeers(account: Account, query: String) -> Signal<[AdPeer], NoError> {
+    // AYG: "Disable Ads" also covers the sponsored peers Telegram injects into search
+    // results — AyuGram for Android drops them in `DialogsSearchAdapter` on the same
+    // flag. Returning early keeps `contacts.getSponsoredPeers` off the wire entirely.
+    if AYGCustomizationManager.shared.disableAds {
+        return .single([])
+    }
     return account.network.request(Api.functions.contacts.getSponsoredPeers(q: query))
     |> map(Optional.init)
     |> `catch` { _ in

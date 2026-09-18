@@ -82,6 +82,32 @@ func managedAutoremoveMessageOperations(network: Network, postbox: Postbox, isRe
                     Logger.shared.log("Autoremove", "Performing autoremove for \(entry.messageId), isRemove: \(isRemove)")
 
                     if let message = transaction.getMessage(entry.messageId) {
+                        // AYG: keep view-once media. A message consumed before this
+                        // feature existed — or on a build that predates it — still has
+                        // `countdownBeginTime` stamped and so is still registered here.
+                        // Drop the timer instead of expiring the media; going on to the
+                        // anti-delete branch below would keep the photo but mark the
+                        // message deleted, which is not what "view once stays viewable"
+                        // means.
+                        if aygKeepsViewOnceMedia(message) {
+                            transaction.clearTimestampBasedAttribute(id: entry.messageId, tag: tag)
+                            return
+                        }
+                        // AYG: capture the message before the autoremove watchdog
+                        // destroys it — self-destruct media, one-time media,
+                        // secret-chat TTL, chat-wide auto-delete. This also covers
+                        // timers that expired while the app was closed: this
+                        // manager restores them from the postbox on wake-up and
+                        // runs the already-expired ones with delay 0. Once kept,
+                        // the message stays in the chat marked deleted, so the
+                        // timestamp-based timer is cleared to stop the watchdog
+                        // firing again.
+                        if AntiDeleteManager.shared.shouldPreserveTTL, !aygIsAntiDeleteProtectedMessage(message) {
+                            if aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: nil, mediaBox: postbox.mediaBox) {
+                                transaction.clearTimestampBasedAttribute(id: entry.messageId, tag: tag)
+                                return
+                            }
+                        }
                         if message.id.peerId.namespace == Namespaces.Peer.SecretChat || isRemove {
                             _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: [entry.messageId])
                         } else {

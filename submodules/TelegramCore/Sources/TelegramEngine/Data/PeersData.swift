@@ -2356,6 +2356,13 @@ public extension TelegramEngine.EngineData.Item {
                 guard let peer = peerViewMainPeer(view) else {
                     return false
                 }
+                // AYG: `chatAvailableMessageActionsImpl` and the overlay audio player ask
+                // this item, not `Peer.isCopyProtectionEnabled`, so gating the two
+                // chokepoints alone would leave the Forward option and the "Save to
+                // Music" row still locked. Local gates, both of them.
+                if AYGForwardingManager.shared.ignoresCopyProtection {
+                    return false
+                }
                 if let cachedPeerData = view.cachedData as? CachedUserData {
                     return cachedPeerData.flags.contains(.copyProtectionEnabled)
                 } else if let group = peer as? TelegramGroup {
@@ -2387,6 +2394,12 @@ public extension TelegramEngine.EngineData.Item {
             func extract(view: PostboxView) -> Result {
                 guard let view = view as? CachedPeerDataView else {
                     preconditionFailure()
+                }
+                // AYG: `isPeerCopyProtected` ORs this into the same gate, so it has to
+                // follow. This is *my own* Restricted Saving for a one-to-one chat;
+                // AyuGram for Android bypasses it too (`ayuNoforwards_my_enabled`).
+                if AYGForwardingManager.shared.ignoresCopyProtection {
+                    return false
                 }
                 if let cachedData = view.cachedPeerData as? CachedUserData {
                     return cachedData.flags.contains(.myCopyProtectionEnabled)

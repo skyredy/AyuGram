@@ -59,6 +59,14 @@ public final class ChatListTitleView: UIView, NavigationBarTitleView, Navigation
     private var titleCredibilityIconView: ComponentHostView<Empty>?
     private let animationCache: AnimationCache
     private let animationRenderer: MultiAnimationRenderer
+
+    // AYG: "Display Ghost Status". AyuGram puts a ghost where the emoji status goes
+    // next to the chat-list title while Ghost Mode is active — `DialogsActivity`
+    // hands `ActionBar.getVisibleTitleRightDrawable` the 24dp `ayu_ghost` drawable,
+    // tinted with the action-bar title colour and with the status particles off.
+    // It *replaces* the status rather than sitting beside it, so it is fed through
+    // the same credibility-icon slot instead of being a second view.
+    private var aygGhostStatusObservers: [NSObjectProtocol] = []
     
     public var requestUpdate: ((ContainedViewLayoutTransition) -> Void)?
     public var openStatusSetup: ((UIView) -> Void)?
@@ -313,6 +321,23 @@ public final class ChatListTitleView: UIView, NavigationBarTitleView, Navigation
         }
         
         self.proxyButton.addTarget(self, action: #selector(self.proxyButtonPressed), for: .touchUpInside)
+
+        // AYG: the ghost depends on two settings that live outside this view, and
+        // neither one goes through the title's own state.
+        for name in [AYGCustomizationManager.settingsChangedNotification, AYGGhostModeManager.settingsChangedNotification] {
+            self.aygGhostStatusObservers.append(NotificationCenter.default.addObserver(forName: name, object: nil, queue: .main) { [weak self] _ in
+                guard let self, let size = self.validLayout else {
+                    return
+                }
+                let _ = self.updateLayoutInternal(size: size, transition: .immediate)
+            })
+        }
+    }
+
+    deinit {
+        for observer in self.aygGhostStatusObservers {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
     
     required public init?(coder aDecoder: NSCoder) {
@@ -392,13 +417,20 @@ public final class ChatListTitleView: UIView, NavigationBarTitleView, Navigation
         let activityIndicatorFrame = CGRect(origin: CGPoint(x: titleFrame.minX - indicatorSize.width - 4.0, y: titleFrame.minY - 1.0), size: indicatorSize)
         transition.updateFrame(node: self.activityIndicator, frame: activityIndicatorFrame)
         
-        if let peerStatus = self.title.peerStatus {
+        let aygShowsGhostStatus = AYGCustomizationManager.shared.shouldDisplayGhostStatus(forAccount: self.context.account.peerId)
+        if aygShowsGhostStatus || self.title.peerStatus != nil {
             let statusContent: EmojiStatusComponent.Content
-            switch peerStatus {
-            case .premium:
-                statusContent = .premium(color: self.theme.list.itemAccentColor)
-            case let .emoji(emoji):
-                statusContent = .animation(content: .customEmoji(fileId: emoji.fileId), size: CGSize(width: 22.0, height: 22.0), placeholderColor: self.theme.list.mediaPlaceholderColor, themeColor: self.theme.list.itemAccentColor, loopMode: .count(2))
+            if aygShowsGhostStatus {
+                statusContent = .image(image: UIImage(bundleImageName: "AyuGram/AYGGhost"), tintColor: self.theme.rootController.navigationBar.primaryTextColor)
+            } else {
+                switch self.title.peerStatus {
+                case .premium:
+                    statusContent = .premium(color: self.theme.list.itemAccentColor)
+                case let .emoji(emoji):
+                    statusContent = .animation(content: .customEmoji(fileId: emoji.fileId), size: CGSize(width: 22.0, height: 22.0), placeholderColor: self.theme.list.mediaPlaceholderColor, themeColor: self.theme.list.itemAccentColor, loopMode: .count(2))
+                case .none:
+                    statusContent = .none
+                }
             }
             
             var titleCredibilityIconTransition = ComponentTransition(transition)

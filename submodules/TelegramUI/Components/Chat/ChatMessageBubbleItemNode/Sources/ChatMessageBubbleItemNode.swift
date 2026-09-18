@@ -2675,7 +2675,9 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
                     hasAutoremove: message.isSelfExpiring,
                     canViewReactionList: canViewMessageReactionList(message: EngineMessage(message)),
                     animationCache: item.controllerInteraction.presentationContext.animationCache,
-                    animationRenderer: item.controllerInteraction.presentationContext.animationRenderer
+                    animationRenderer: item.controllerInteraction.presentationContext.animationRenderer,
+                    // AYG: draws the deleted mark left of the timestamp.
+                    aygIsDeleted: message.aygIsDeleted
                 ))
                 
                 mosaicStatusSizeAndApply = statusSuggestedWidthAndContinue.1(statusSuggestedWidthAndContinue.0)
@@ -3926,6 +3928,30 @@ public class ChatMessageBubbleItemNode: ChatMessageItemView, ChatMessagePreviewI
         strongSelf.mainContextSourceNode.frame = CGRect(origin: CGPoint(), size: layout.contentSize)
         strongSelf.mainContextSourceNode.contentNode.frame = CGRect(origin: CGPoint(), size: layout.contentSize)
         strongSelf.contentContainersWrapperNode.frame = CGRect(origin: CGPoint(), size: layout.contentSize)
+        
+        // AYG: "Translucent Deleted Messages". `mainContextSourceNode.contentNode` is the
+        // one parent of the background, the wallpaper backdrop, the content tree *and*
+        // the avatar accessory node (see `addAccessoryItemNode`), so a single alpha here
+        // dims exactly what `ChatMessageCell.setAlpha(0.7f)` dims in the APK — and not
+        // the accessibility area, which hangs off `self`.
+        //
+        // `self.alpha` would also work and is what Android uses, but `ListViewItemNode`
+        // animates its own alpha during insertion and removal, and a value written here
+        // would fight those.
+        let aygMessages: [Message]
+        switch item.content {
+        case let .message(message, _, _, _, _):
+            aygMessages = [message]
+        case let .group(messages):
+            aygMessages = messages.map { $0.0 }
+        }
+        let aygDisplayAlpha = CGFloat(AYGCustomizationManager.shared.displayAlpha(forGroup: aygMessages))
+        if strongSelf.mainContextSourceNode.contentNode.alpha != aygDisplayAlpha {
+            // Android animates this over 250ms with an ease-out curve when a message
+            // becomes deleted while it is on screen (`startDeletedAlphaAnimation`).
+            animation.animator.updateAlpha(layer: strongSelf.mainContextSourceNode.contentNode.layer, alpha: aygDisplayAlpha, completion: nil)
+            strongSelf.mainContextSourceNode.contentNode.alpha = aygDisplayAlpha
+        }
         
         strongSelf.appliedItem = item
         strongSelf.appliedForwardInfo = (forwardSource, forwardAuthorSignature)

@@ -15,6 +15,7 @@ import TelegramPresentationData
 import PresentationDataUtils
 import PasswordSetupUI
 import InstantPageCache
+import AyuGramUI
 
 extension PeerInfoScreenNode {
     func openSettings(section: PeerInfoSettingsSection) {
@@ -143,8 +144,6 @@ extension PeerInfoScreenNode {
             push(dataAndStorageController(context: self.context))
         case .appearance:
             push(themeSettingsController(context: self.context))
-        case .ayuGramSettings:
-            push(ayuGramSettingsController(context: self.context))
         case .language:
             push(LocalizationListController(context: self.context))
         case .premium:
@@ -273,6 +272,8 @@ extension PeerInfoScreenNode {
             self.interaction.editingOpenNameColorSetup()
         case .powerSaving:
             push(energySavingSettingsScreen(context: self.context))
+        case .ayugram:
+            push(aygSettingsController(context: self.context))
         case .businessSetup:
             guard let controller = self.controller, !controller.presentAccountFrozenInfoIfNeeded() else {
                 return

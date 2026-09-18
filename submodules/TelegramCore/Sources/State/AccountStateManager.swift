@@ -65,12 +65,35 @@ final class MessagesRemovedContext {
     private var messagesRemovedInteractively = Set<DeletedMessageId>()
     private var messagesRemovedRemotely = Set<DeletedMessageId>()
     private var messagesRemovedInteractivelyLock = NSLock()
-    
+
+    // AYG: a message anti-delete kept must never be reported as removed. This
+    // set feeds the chat history's "these messages are gone" path; letting a
+    // kept message through makes the bubble vanish even though the postbox row
+    // is still there.
+    private func isAntiDeleteProtected(_ id: MessageId) -> Bool {
+        return AntiDeleteManager.shared.isMessageDeleted(peerId: id.peerId.toInt64(), messageId: id.id)
+    }
+
+    func filterAntiDeleteProtectedDeletedIds(_ ids: [DeletedMessageId]) -> [DeletedMessageId] {
+        return ids.filter { id in
+            switch id {
+            case let .global(globalId):
+                return !AntiDeleteManager.shared.isArchivedGlobalId(globalId)
+            case let .messageId(messageId):
+                return !self.isAntiDeleteProtected(messageId)
+            }
+        }
+    }
+
     func synchronouslyIsMessageDeletedInteractively(ids: [MessageId]) -> [EngineMessage.Id] {
         var result: [EngineMessage.Id] = []
         
         self.messagesRemovedInteractivelyLock.lock()
         for id in ids {
+            // AYG: kept messages are not deleted.
+            if self.isAntiDeleteProtected(id) {
+                continue
+            }
             let mappedId: DeletedMessageId
             if id.peerId.namespace == Namespaces.Peer.CloudUser || id.peerId.namespace == Namespaces.Peer.CloudGroup {
                 mappedId = .global(id.id)
@@ -91,6 +114,10 @@ final class MessagesRemovedContext {
         
         self.messagesRemovedInteractivelyLock.lock()
         for id in ids {
+            // AYG: kept messages are not deleted.
+            if self.isAntiDeleteProtected(id) {
+                continue
+            }
             let mappedId: DeletedMessageId
             if id.peerId.namespace == Namespaces.Peer.CloudUser || id.peerId.namespace == Namespaces.Peer.CloudGroup {
                 mappedId = .global(id.id)
@@ -107,22 +134,26 @@ final class MessagesRemovedContext {
     }
     
     func addIsMessagesDeletedInteractively(ids: [DeletedMessageId]) {
-        if ids.isEmpty {
+        // AYG: drop kept messages before they enter the removed set.
+        let filteredIds = self.filterAntiDeleteProtectedDeletedIds(ids)
+        if filteredIds.isEmpty {
             return
         }
         
         self.messagesRemovedInteractivelyLock.lock()
-        self.messagesRemovedInteractively.formUnion(ids)
+        self.messagesRemovedInteractively.formUnion(filteredIds)
         self.messagesRemovedInteractivelyLock.unlock()
     }
     
     func addIsMessagesDeletedRemotely(ids: [DeletedMessageId]) {
-        if ids.isEmpty {
+        // AYG: drop kept messages before they enter the removed set.
+        let filteredIds = self.filterAntiDeleteProtectedDeletedIds(ids)
+        if filteredIds.isEmpty {
             return
         }
         
         self.messagesRemovedInteractivelyLock.lock()
-        self.messagesRemovedRemotely.formUnion(ids)
+        self.messagesRemovedRemotely.formUnion(filteredIds)
         self.messagesRemovedInteractivelyLock.unlock()
     }
 }
@@ -1281,7 +1312,11 @@ public final class AccountStateManager {
                 }
                 
                 if !events.deletedMessageIds.isEmpty {
-                    self.deletedMessagesPipe.putNext(events.deletedMessageIds)
+                    // AYG: never publish a deletion for a message anti-delete kept.
+                    let deletedMessageIds = self.messagesRemovedContext.filterAntiDeleteProtectedDeletedIds(events.deletedMessageIds)
+                    if !deletedMessageIds.isEmpty {
+                        self.deletedMessagesPipe.putNext(deletedMessageIds)
+                    }
                 }
                 
                 if events.updateConfig {
@@ -1847,7 +1882,11 @@ public final class AccountStateManager {
         }
                 
         func notifyDeletedMessages(messageIds: [MessageId]) {
-            self.deletedMessagesPipe.putNext(messageIds.map { .messageId($0) })
+            // AYG: see the deletedMessageIds branch above.
+            let deletedMessageIds = self.messagesRemovedContext.filterAntiDeleteProtectedDeletedIds(messageIds.map { .messageId($0) })
+            if !deletedMessageIds.isEmpty {
+                self.deletedMessagesPipe.putNext(deletedMessageIds)
+            }
         }
         
         public func processIncomingCallUpdate(data: Data, completion: @escaping ((CallSessionRingingState, CallSession)?) -> Void) {

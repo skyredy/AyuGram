@@ -249,14 +249,24 @@ func mediaContentToUpload(accountPeerId: PeerId, network: Network, postbox: Post
             }
         }
     }
+    // AYG: the copy-forward's re-upload marker. A photo or document that came out of a
+    // `noforwards` chat cannot be re-sent by cloud reference — the server rejects the
+    // file reference — so the copy has to start from the bytes already in the media box.
+    // This is the only part of the restricted-forwarding mechanism the server can see.
+    let aygForceDirectMediaUpload = attributes.contains(where: { $0 is ForceDirectMediaUploadMessageAttribute })
+    let aygEffectiveForceReupload = forceReupload || aygForceDirectMediaUpload
+
     if let image = media as? TelegramMediaImage, let largest = largestImageRepresentation(image.representations) {
         if peerId.namespace == Namespaces.Peer.SecretChat, let resource = largest.resource as? SecretFileMediaResource {
             return .single(.content(PendingMessageUploadedContentAndReuploadInfo(content: .secretMedia(.inputEncryptedFile(.init(id: resource.fileId, accessHash: resource.accessHash)), resource.decryptedSize, resource.key), reuploadInfo: nil, cacheReferenceKey: nil)))
         }
-        if peerId.namespace != Namespaces.Peer.SecretChat, let reference = image.reference, case let .cloud(id, accessHash, maybeFileReference) = reference, let fileReference = maybeFileReference {
+        // AYG: `!aygForceDirectMediaUpload` — see above.
+        if !aygForceDirectMediaUpload, peerId.namespace != Namespaces.Peer.SecretChat, let reference = image.reference, case let .cloud(id, accessHash, maybeFileReference) = reference, let fileReference = maybeFileReference {
             return .single(.content(PendingMessageUploadedContentAndReuploadInfo(content: .media(Api.InputMedia.inputMediaPhoto(.init(flags: 0, id: Api.InputPhoto.inputPhoto(.init(id: id, accessHash: accessHash, fileReference: Buffer(data: fileReference))), ttlSeconds: nil, video: nil)), text), reuploadInfo: nil, cacheReferenceKey: nil)))
         } else {
-            return uploadedMediaImageContent(network: network, postbox: postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messageMediaPreuploadManager: messageMediaPreuploadManager, forceReupload: forceReupload, isGrouped: isGrouped, peerId: peerId, image: image, messageId: messageId, text: text, attributes: attributes, autoremoveMessageAttribute: autoremoveMessageAttribute, autoclearMessageAttribute: autoclearMessageAttribute, auxiliaryMethods: auxiliaryMethods)
+            // AYG: `aygEffectiveForceReupload`, not `forceReupload` — `uploadedMediaImageContent`
+            // takes the same cloud-reference shortcut internally when it is false.
+            return uploadedMediaImageContent(network: network, postbox: postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messageMediaPreuploadManager: messageMediaPreuploadManager, forceReupload: aygEffectiveForceReupload, isGrouped: isGrouped, peerId: peerId, image: image, messageId: messageId, text: text, attributes: attributes, autoremoveMessageAttribute: autoremoveMessageAttribute, autoclearMessageAttribute: autoclearMessageAttribute, auxiliaryMethods: auxiliaryMethods)
         }
     } else if let file = media as? TelegramMediaFile {
         if let resource = file.resource as? CloudDocumentMediaResource {
@@ -269,6 +279,10 @@ func mediaContentToUpload(accountPeerId: PeerId, network: Network, postbox: Post
                     }
                 }
                 return uploadedMediaFileContent(network: network, postbox: postbox, auxiliaryMethods: auxiliaryMethods, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messageMediaPreuploadManager: messageMediaPreuploadManager, forceReupload: true, isGrouped: isGrouped, isPaid: false, passFetchProgress: false, forceNoBigParts: false, peerId: peerId, messageId: messageId, text: text, attributes: attributes, autoremoveMessageAttribute: autoremoveMessageAttribute, autoclearMessageAttribute: autoclearMessageAttribute, file: file)
+            } else if aygForceDirectMediaUpload {
+                // AYG: bypass the cloud reference entirely and upload the local bytes,
+                // the same way the secret-chat branch just above already does.
+                return uploadedMediaFileContent(network: network, postbox: postbox, auxiliaryMethods: auxiliaryMethods, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messageMediaPreuploadManager: messageMediaPreuploadManager, forceReupload: true, isGrouped: isGrouped, isPaid: false, passFetchProgress: passFetchProgress, forceNoBigParts: forceNoBigParts, peerId: peerId, messageId: messageId, text: text, attributes: attributes, autoremoveMessageAttribute: autoremoveMessageAttribute, autoclearMessageAttribute: autoclearMessageAttribute, file: file)
             } else {
                 if forceReupload {
                     let finalMediaReference: Signal<AnyMediaReference, NoError>

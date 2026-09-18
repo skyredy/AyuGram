@@ -142,7 +142,12 @@ func chatHistoryEntriesForView(
     
     var count = 0
     loop: for entry in view.entries {
-        var message = entry.message
+        // AYG: a reply whose target was deleted has nothing to draw in its header.
+        // This attaches the original out of the anti-delete archive, which is what
+        // Android's `AyuHistoryHook.fixReplies` does at the same point in the load.
+        // Cheap when the feature is off or the archive is empty — it exits on two
+        // booleans before touching the message.
+        var message = aygMessageWithDeletedReplyAttached(entry.message)
         var isRead = entry.isRead
         
         var pinToTop = false

@@ -297,6 +297,10 @@ private func filterMessageAttributesForOutgoingMessage(_ attributes: [MessageAtt
             return true
         case _ as SuggestedPostMessageAttribute:
             return true
+        // AYG: let the copy-forward's re-upload marker survive into the stored outgoing
+        // message — the upload path reads it there. It never reaches the wire.
+        case _ as ForceDirectMediaUploadMessageAttribute:
+            return true
         case _ as EphemeralOutgoingMessageAttribute:
             assertionFailure("EphemeralOutgoingMessageAttribute must be routed before normal outgoing enqueue")
             return false
@@ -570,6 +574,12 @@ private func opportunisticallyTransformOutgoingMedia(network: Network, postbox: 
 }
 
 public func enqueueMessages(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> Signal<[MessageId?], NoError> {
+    // AYG: Ghost Mode's two send-side options are applied here rather than in the chat
+    // controller, because this is the funnel every send goes through — the input panel,
+    // the forward picker, the share sheet, media recording. Applying them one layer up
+    // would mean finding and patching each of those separately, and missing one is a leak.
+    let messages = aygApplyGhostModeSendOptions(account: account, peerId: peerId, messages: messages)
+
     let signal: Signal<[(Bool, EnqueueMessage)], NoError>
     if let transformOutgoingMessageMedia = account.transformOutgoingMessageMedia {
         signal = opportunisticallyTransformOutgoingMedia(network: account.network, postbox: account.postbox, transformOutgoingMessageMedia: transformOutgoingMessageMedia, messages: messages, userInteractive: true)
@@ -613,6 +623,79 @@ public func enqueueMessages(account: Account, peerId: PeerId, messages: [Enqueue
             return resultIds
         }
     }
+    // AYG: Ghost Mode — "Read on Interact". Replying to a chat whose read receipts are
+    // being withheld leaves it sitting unread on the sender's side, which is exactly the
+    // tell the mode exists to avoid. So sending is treated as reading: the whole chat is
+    // marked read and the receipt is let through, bounded by the allowance below.
+    |> mapToSignal { messageIds -> Signal<[MessageId?], NoError> in
+        guard AYGGhostModeManager.shared.shouldReadOnAction(forAccount: account.peerId, peerId: peerId.toInt64()),
+              peerId.namespace == Namespaces.Peer.CloudUser ||
+              peerId.namespace == Namespaces.Peer.CloudGroup ||
+              peerId.namespace == Namespaces.Peer.CloudChannel else {
+            return .single(messageIds)
+        }
+
+        AYGGhostModeManager.shared.allowReadSyncTemporarily(duration: 3.0)
+        // Collect the read index inside the transaction, then notify OUTSIDE it:
+        // `notifyAppliedIncomingReadMessages` hops to the state manager's queue and
+        // dispatch_syncs back into Postbox, which deadlocks from inside a transaction.
+        return account.postbox.transaction { transaction -> (MessageId?, [MessageId?]) in
+            var readMessageId: MessageId?
+            if let index = transaction.getTopPeerMessageIndex(peerId: peerId, namespace: Namespaces.Message.Cloud) {
+                let _ = transaction.applyInteractiveReadMaxIndex(index)
+                readMessageId = index.id
+            }
+            return (readMessageId, messageIds)
+        }
+        |> map { readMessageId, messageIds -> [MessageId?] in
+            if let readMessageId {
+                account.stateManager.notifyAppliedIncomingReadMessages([readMessageId])
+            }
+            return messageIds
+        }
+    }
+}
+
+// AYG: "Send without Sound" and "Schedule Messages", applied to a batch on its way into
+// the send queue.
+//
+// Both are attribute rewrites, and both step aside for an explicit choice the user made
+// in the composer: a message already marked silent is left alone, and a message that
+// already carries a schedule is never re-scheduled.
+private func aygApplyGhostModeSendOptions(account: Account, peerId: PeerId, messages: [EnqueueMessage]) -> [EnqueueMessage] {
+    var messages = messages
+
+    if AYGGhostModeManager.shared.shouldSendWithoutSound(forAccount: account.peerId), peerId != account.peerId {
+        messages = messages.map { message in
+            if message.attributes.contains(where: { $0 is NotificationInfoMessageAttribute }) {
+                return message
+            }
+            return message.withUpdatedAttributes { attributes in
+                var attributes = attributes
+                attributes.append(NotificationInfoMessageAttribute(flags: .muted))
+                return attributes
+            }
+        }
+    }
+
+    if let scheduleTime = AYGSendDelayManager.effectiveScheduleTime(
+        for: messages,
+        explicitScheduleTime: nil,
+        accountPeerId: account.peerId,
+        peerId: peerId,
+        isScheduledMessages: false
+    ) {
+        messages = messages.map { message in
+            return message.withUpdatedAttributes { attributes in
+                var attributes = attributes
+                attributes.removeAll(where: { $0 is OutgoingScheduleInfoMessageAttribute })
+                attributes.append(OutgoingScheduleInfoMessageAttribute(scheduleTime: scheduleTime, repeatPeriod: nil))
+                return attributes
+            }
+        }
+    }
+
+    return messages
 }
 
 public func resendMessages(account: Account, messageIds: [MessageId]) -> Signal<Void, NoError> {

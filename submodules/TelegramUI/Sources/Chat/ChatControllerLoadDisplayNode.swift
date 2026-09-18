@@ -987,7 +987,26 @@ extension ChatControllerImpl {
             guard let strongSelf = self else {
                 return
             }
-            
+
+            // AYG: a reply aimed at a message the fork kept but the server deleted cannot
+            // be sent as a reply — the id no longer exists there, so it arrives with an
+            // empty quote for everyone. AyuGram composes with the ordinary reply panel and
+            // converts at this point: the reply is dropped and the quote folded into the
+            // text as a blockquote. This closure, not `ChatController.sendMessages`, is
+            // what the input panel sends through — it goes straight to `enqueueMessages`
+            // below — and it runs before `transformEnqueueMessages` so scheduling and
+            // partitioning see the final text.
+            var messages = messages
+            if let aygChatPeerId = strongSelf.chatLocation.peerId {
+                messages = aygConvertRepliesToDeletedMessages(
+                    messages,
+                    chatPeerId: aygChatPeerId,
+                    resolveMessage: { [weak strongSelf] id in
+                        return strongSelf?.chatDisplayNode.historyNode.messageInCurrentHistoryView(id)?._asMessage()
+                    }
+                )
+            }
+
             var correlationIds: [Int64] = []
             for message in messages {
                 switch message {

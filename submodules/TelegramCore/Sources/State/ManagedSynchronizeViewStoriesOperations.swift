@@ -119,6 +119,14 @@ func managedSynchronizeViewStoriesOperations(postbox: Postbox, network: Network,
 }
 
 private func pushStoriesAreSeen(postbox: Postbox, network: Network, stateManager: AccountStateManager, peer: Peer, operation: SynchronizeViewStoriesOperation) -> Signal<Void, NoError> {
+    // AYG: Ghost Mode — "Don't Read Stories". This queue is drained separately from
+    // `_internal_markStoryAsSeen`, so both need the gate: the operation is enqueued while
+    // the story is on screen and pushed later, and without this the view would still land
+    // on the sender's list a moment after the story closes.
+    if AYGGhostModeManager.shared.shouldHideStoryViews(forAccount: stateManager.accountPeerId, peerId: operation.peerId.toInt64()) {
+        return .complete()
+    }
+
     guard let inputPeer = apiInputPeer(peer) else {
         return .complete()
     }

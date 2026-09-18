@@ -84,4 +84,29 @@ xcode-files
 **/node_modules/
 tools/sim-watcher/dist/
 .mcp.json
-build-system/ayugram-configuration.local.json
+
+# ---- AYG ----------------------------------------------------------------
+# Notes for AI assistants: local working documents, never part of a release.
+CLAUDE.md
+**/CLAUDE.md
+.claude/
+**/.claude/
+
+# Signing material. `build-input/*` above already covers the real certificates
+# and profiles; these patterns are the backstop that keeps a stray copy from
+# ever being added by hand or by `git add .`.
+*.mobileprovision
+*.provisionprofile
+*.p12
+*.p8
+*.pem
+*.key
+*.certSigningRequest
+codesigning-adhoc/
+codesigning-appstore/
+
+# api_id / api_hash registered on my.telegram.org. Publishing these lets anyone
+# impersonate this client to Telegram and gets the pair revoked.
+build-system/AYGAdHocConfiguration.json
+build-system/AYGAppStoreConfiguration.json
+build-system/AYGDevelopmentConfiguration.json

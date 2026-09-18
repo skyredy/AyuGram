@@ -1826,8 +1826,21 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
             self.allAdMessagesPromise.get()
         )
         
-        let contentSettings = self.context.engine.data.subscribe(TelegramEngine.EngineData.Item.Configuration.ContentSettings())
-        
+        // AYG: AyuGram's filter configuration is an input to the transition, so
+        // adding or editing a filter re-runs the pipeline for a chat that is
+        // already open — Android does the same thing by posting
+        // `AyuConstants.FILTERS_UPDATED` from `AyuFilterCacheController`.
+        // It rides along with `contentSettings` because the `combineLatest`
+        // driving the transition is already at its maximum arity; the mapped-out
+        // type is unchanged, only the emission cadence.
+        let contentSettings = combineLatest(
+            self.context.engine.data.subscribe(TelegramEngine.EngineData.Item.Configuration.ContentSettings()),
+            AYGFiltersManager.shared.engineVersionSignal
+        )
+        |> map { contentSettings, _ -> ContentSettings in
+            return contentSettings
+        }
+
         let maxReadStoryId: Signal<Int32?, NoError>
         if let peerId = self.chatLocation.peerId, peerId.namespace == Namespaces.Peer.CloudUser {
             maxReadStoryId = self.context.account.postbox.combinedView(keys: [PostboxViewKey.storiesState(key: .peer(peerId))])
@@ -2154,7 +2167,13 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                         }
                     } else if case let .cachedPeerData(_, cachedData) = entry, let cachedUserData = cachedData as? CachedUserData {
                         if !isCopyProtectionEnabled {
-                            isCopyProtectionEnabled = cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled)
+                            // AYG: `Peer` carries no copy-protection flag for a one-to-one
+                            // chat — Restricted Saving lives on the cached data — so the
+                            // `Peer.isCopyProtectionEnabled` chokepoint does not reach this
+                            // branch. `aygIsCopyProtectionEnabled` is the same `||` with the
+                            // bypass in front of it. Feeds `associatedData.isCopyProtectionEnabled`,
+                            // which is a purely local gate on copy/selection/screenshot.
+                            isCopyProtectionEnabled = cachedUserData.aygIsCopyProtectionEnabled
                         }
                     }
                 }
@@ -2210,7 +2229,7 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                 }
                                 
                 let previousChatHistoryEntriesForViewState = chatHistoryEntriesForViewState.with({ $0 })
-                let (filteredEntries, updatedChatHistoryEntriesForViewState) = chatHistoryEntriesForView(
+                let (unfilteredEntries, updatedChatHistoryEntriesForViewState) = chatHistoryEntriesForView(
                     currentState: previousChatHistoryEntriesForViewState,
                     context: context,
                     location: chatLocation,
@@ -2239,6 +2258,13 @@ public final class ChatHistoryListNodeImpl: ASDisplayNode, ChatHistoryNode, Chat
                     isMusicPlaylist: isMusicPlaylist,
                     pinToTopStableId: pinToTopStableId
                 )
+                // AYG: AyuGram's message filters. Dropped here, after the entries
+                // are built and before anything is measured, so a filtered message
+                // never becomes a list item at all. `AYGChatHistoryFilter.swift`
+                // explains why this seam and not the postbox view or the item node.
+                // `lastHeaderId` below must be computed from the filtered array —
+                // it is the date header of the last row that will actually exist.
+                let filteredEntries = aygFilteredChatHistoryEntries(unfilteredEntries, accountPeerId: context.account.peerId)
                 let lastHeaderId = filteredEntries.last.flatMap { listMessageDateHeaderId(timestamp: $0.index.timestamp) } ?? 0
                 let processedView = ChatHistoryView(originalView: view, filteredEntries: filteredEntries, associatedData: associatedData, lastHeaderId: lastHeaderId, id: id, locationInput: update.2, ignoreMessagesInTimestampRange: update.3, ignoreMessageIds: update.4)
                 let previousValueAndVersion = previousView.swap((processedView, update.1, selectedMessages, allAdMessages.version))

@@ -3,20 +3,36 @@ import Postbox
 import TelegramApi
 import SwiftSignalKit
 
-func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messageId: MessageId) -> Signal<Void, NoError> {
+// AYG: `accountPeerId` is new — Ghost Mode settings are per-account, and this is the one
+// read-receipt path that had no account in scope.
+func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, accountPeerId: PeerId, messageId: MessageId) -> Signal<Void, NoError> {
     return postbox.transaction { transaction -> Void in
         if let message = transaction.getMessage(messageId), message.flags.contains(.Incoming) {
             var updateMessage = false
             var updatedAttributes = message.attributes
-            
+
+            // AYG: Ghost Mode — "Don't Read Messages", for secret chats. Cloud peers are
+            // suppressed later, when the queued operation is drained by
+            // `synchronizeConsumeMessageContents`; a secret chat's consume notification
+            // travels through `addSecretChatOutgoingOperation` instead, so it has to be
+            // skipped before it is ever enqueued. The message is still marked consumed
+            // locally either way — only the remote notification is dropped.
+            let aygHideConsumeForPeer: Bool = {
+                let aygPeerIdInt = message.id.peerId.toInt64()
+                if AYGGhostModeManager.shared.hasReadSyncAllowance(for: aygPeerIdInt) {
+                    return false
+                }
+                return AYGGhostModeManager.shared.shouldHideReadReceipts(forAccount: accountPeerId, peerId: aygPeerIdInt)
+            }()
+
             for i in 0 ..< updatedAttributes.count {
                 if let attribute = updatedAttributes[i] as? ConsumableContentMessageAttribute {
                     if !attribute.consumed {
                         updatedAttributes[i] = ConsumableContentMessageAttribute(consumed: true)
                         updateMessage = true
-                        
+
                         if message.id.peerId.namespace == Namespaces.Peer.SecretChat {
-                            if let state = transaction.getPeerChatState(message.id.peerId) as? SecretChatState {
+                            if !aygHideConsumeForPeer, let state = transaction.getPeerChatState(message.id.peerId) as? SecretChatState {
                                 var layer: SecretChatLayer?
                                 switch state.embeddedState {
                                     case .terminated, .handshake:
@@ -51,6 +67,21 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
             for i in 0 ..< updatedAttributes.count {
                 if let attribute = updatedAttributes[i] as? AutoremoveTimeoutMessageAttribute {
                     if attribute.countdownBeginTime == nil || attribute.countdownBeginTime == 0 {
+                        // AYG: keep view-once media. Stamping `countdownBeginTime` is what
+                        // registers the message with Postbox's timestamp-based attribute
+                        // index, and the autoremove watchdog then swaps the photo for
+                        // `TelegramMediaExpiredContent`. Leaving it unstamped is the entire
+                        // burn-stop.
+                        //
+                        // The consumable-content loop above — the one that enqueues
+                        // `messages.readMessageContents` — has already run and is
+                        // untouched, so nothing about what the sender is told changes.
+                        // The secret-chat notification skipped along with this branch is
+                        // unreachable in practice: only cloud media ever carries the
+                        // `viewOnceTimeout` sentinel, secret chats use real countdowns.
+                        if aygShouldSuppressViewOnceCountdown(timeout: attribute.timeout, message: message) {
+                            continue
+                        }
                         var timeout = attribute.timeout
                         if let duration = message.secretMediaDuration {
                             timeout = max(timeout, Int32(duration))
@@ -82,6 +113,12 @@ func _internal_markMessageContentAsConsumedInteractively(postbox: Postbox, messa
                     }
                 } else if let attribute = updatedAttributes[i] as? AutoclearTimeoutMessageAttribute {
                     if attribute.countdownBeginTime == nil || attribute.countdownBeginTime == 0 {
+                        // AYG: keep view-once media — see the autoremove branch above.
+                        // This is the branch cloud one-time media actually takes:
+                        // `StoreMessage_Telegram` gives it an `AutoclearTimeoutMessageAttribute`.
+                        if aygShouldSuppressViewOnceCountdown(timeout: attribute.timeout, message: message) {
+                            continue
+                        }
                         var timeout = attribute.timeout
                         if let duration = message.secretMediaDuration, timeout != viewOnceTimeout {
                             timeout = max(timeout, Int32(duration))
@@ -202,6 +239,13 @@ func markMessageContentAsConsumedRemotely(transaction: Transaction, messageId: M
         for i in 0 ..< updatedAttributes.count {
             if let attribute = updatedAttributes[i] as? AutoremoveTimeoutMessageAttribute {
                 if (attribute.countdownBeginTime == nil || attribute.countdownBeginTime == 0) && message.containsSecretMedia {
+                    // AYG: keep view-once media. This is the same message opened on
+                    // another device, arriving as `updateReadMessagesContents`. Unlike
+                    // the interactive path it replaces the media inline rather than
+                    // waiting for the watchdog, so it needs a guard of its own.
+                    if aygShouldSuppressViewOnceCountdown(timeout: attribute.timeout, message: message) {
+                        continue
+                    }
                     updatedAttributes[i] = AutoremoveTimeoutMessageAttribute(timeout: attribute.timeout, countdownBeginTime: countdownBeginTime)
                     updateMessage = true
                                  
@@ -226,6 +270,10 @@ func markMessageContentAsConsumedRemotely(transaction: Transaction, messageId: M
                 }
             } else if let attribute = updatedAttributes[i] as? AutoclearTimeoutMessageAttribute {
                 if (attribute.countdownBeginTime == nil || attribute.countdownBeginTime == 0) && message.containsSecretMedia {
+                    // AYG: keep view-once media — see the autoremove branch above.
+                    if aygShouldSuppressViewOnceCountdown(timeout: attribute.timeout, message: message) {
+                        continue
+                    }
                     updatedAttributes[i] = AutoclearTimeoutMessageAttribute(timeout: attribute.timeout, countdownBeginTime: countdownBeginTime)
                     updateMessage = true
                     

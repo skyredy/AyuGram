@@ -252,14 +252,17 @@ public extension Peer {
     }
     
     var isCopyProtectionEnabled: Bool {
-        switch self {
-        case let group as TelegramGroup:
-            return group.flags.contains(.copyProtectionEnabled)
-        case let channel as TelegramChannel:
-            return channel.flags.contains(.copyProtectionEnabled)
-        default:
+        // AYG: the peer-level half of the restricted-forwarding chokepoint (the message
+        // half is `Message.isCopyProtected()`). Everything downstream of this — the
+        // gallery's save/share buttons, `associatedData.isCopyProtectionEnabled`, the
+        // chat's `copyProtectionEnabled` presentation flag, the avatar-gallery share
+        // button — is a local gate. The admin-facing "Restrict Saving Content" switch is
+        // not affected: `ChannelVisibilityController` reads `peer.flags` directly, and
+        // the real value is `aygIsCopyProtectionEnabledIgnoringBypass`.
+        if AYGForwardingManager.shared.ignoresCopyProtection {
             return false
         }
+        return self.aygIsCopyProtectionEnabledIgnoringBypass
     }
     
     func hasSensitiveContent(platform: String) -> Bool {

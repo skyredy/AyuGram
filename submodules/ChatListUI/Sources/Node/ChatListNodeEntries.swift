@@ -692,6 +692,22 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState, 
             updatedMessages = []
             updatedCombinedReadState = nil
         }
+        // AYG: AyuGram's message filters, on the chat list. `DialogCell.filterCurrentMessage`
+        // swaps the row's message for an empty `filteredDummyMessages[account]`
+        // when the last message is filtered — the *preview* goes blank, the chat
+        // itself stays in the list and keeps its unread badge and its date. The
+        // same clearing the pending-clear-history branch above already does is
+        // exactly that, so it is reused rather than reproduced.
+        //
+        // `entry.messages` is a whole album when the last message is one, which
+        // is the `GroupedMessages` overload Android passes here.
+        if !updatedMessages.isEmpty && !AYGFilterEngine.shared.isInert {
+            let primary = updatedMessages[0]
+            let group = updatedMessages.count > 1 ? updatedMessages : nil
+            if AYGFilterEngine.shared.isFiltered(message: primary, groupMessages: group, accountPeerId: accountPeerId) {
+                updatedMessages = []
+            }
+        }
 
         var draftState: ChatListItemContent.DraftState?
         if let draft = entry.draft {

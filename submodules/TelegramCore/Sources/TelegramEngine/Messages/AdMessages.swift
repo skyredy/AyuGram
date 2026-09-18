@@ -451,6 +451,19 @@ private class AdMessagesHistoryContextImpl {
 
         self.stateValue = State(interPostInterval: nil, messages: [])
 
+        // AYG: "Disable Ads". Everything sponsored — the in-chat posts, the bot-dialog
+        // ad, the mid-video ad in the gallery — arrives through this one context, so a
+        // guard here is the whole feature: no cached ad is restored and, in `activate`
+        // below, `messages.getSponsoredMessages` is never sent.
+        if AYGCustomizationManager.shared.disableAds {
+            // The empty state has to be *published*, not just assigned: `stateValue`'s
+            // `didSet` does not fire during `init`, and the chat history's
+            // `combineLatest` waits on this promise — a promise that never emits would
+            // stall the whole message list rather than merely hide the ad.
+            self.state.set(.single(State(interPostInterval: nil, messages: [])))
+            return
+        }
+
         if messageId == nil {
             self.state.set(CachedState.getCached(postbox: account.postbox, peerId: peerId)
             |> mapToSignal { cachedState -> Signal<State, NoError> in
@@ -478,6 +491,13 @@ private class AdMessagesHistoryContextImpl {
     
     func activate() {
         if self.isActivated {
+            return
+        }
+        // AYG: "Disable Ads" — see the note in `init`. The state stays the empty one it
+        // was seeded with, which every consumer already handles (it is what a peer with
+        // no sponsored messages produces).
+        if AYGCustomizationManager.shared.disableAds {
+            self.isActivated = true
             return
         }
         self.isActivated = true

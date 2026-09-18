@@ -769,7 +769,9 @@ public final class ChatMessageAttachedContentNode: ASDisplayNode {
                                 hasAutoremove: message.isSelfExpiring,
                                 canViewReactionList: canViewMessageReactionList(message: EngineMessage(message)),
                                 animationCache: controllerInteraction.presentationContext.animationCache,
-                                animationRenderer: controllerInteraction.presentationContext.animationRenderer
+                                animationRenderer: controllerInteraction.presentationContext.animationRenderer,
+                                // AYG: draws the deleted mark left of the timestamp.
+                                aygIsDeleted: message.aygIsDeleted
                             ))
                             statusLayoutAndContinue = statusLayoutAndContinueValue
                             actualWidth = max(actualWidth, statusLayoutAndContinueValue.0)

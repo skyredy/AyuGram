@@ -107,6 +107,9 @@ typedef enum {
     UIView *_wrapperView;
     UIView *_startButton;
     
+    // AYG: static round AyuGram logo shown in place of Telegram's GL animation.
+    UIImageView *_aygLogoView;
+    
     bool _loadedView;
 }
 @end
@@ -232,6 +235,9 @@ typedef enum {
 - (void)animateIn {
     CGPoint logoTargetPosition = _glkView.center;
     _glkView.center = CGPointMake(self.view.bounds.size.width / 2.0, self.view.bounds.size.height / 2.0);
+    // AYG: the logo slot is our image view; _glkView is nil on the arm64 simulator.
+    CGPoint aygLogoTargetPosition = _aygLogoView.center;
+    _aygLogoView.center = CGPointMake(self.view.bounds.size.width / 2.0, self.view.bounds.size.height / 2.0);
     
     RMIntroPageView *firstPage = (RMIntroPageView *)[_pageViews firstObject];
     CGPoint headerTargetPosition = firstPage.headerLabel.center;
@@ -247,27 +253,58 @@ typedef enum {
     _startButton.center = CGPointMake(buttonTargetPosition.x, buttonTargetPosition.y + 220.0);
     
     _glkView.transform = CGAffineTransformMakeScale(0.66, 0.66);
+    _aygLogoView.transform = CGAffineTransformMakeScale(0.66, 0.66); // AYG
         
     [UIView animateWithDuration:0.65 delay:0.15 usingSpringWithDamping:1.2f initialSpringVelocity:0.0 options:kNilOptions animations:^{
         _glkView.center = logoTargetPosition;
+        _aygLogoView.center = aygLogoTargetPosition; // AYG
         firstPage.headerLabel.center = headerTargetPosition;
         firstPage.descriptionLabel.center = descriptionTargetPosition;
         _pageControl.center = pageControlTargetPosition;
         _startButton.center = buttonTargetPosition;
         _glkView.transform = CGAffineTransformIdentity;
+        _aygLogoView.transform = CGAffineTransformIdentity; // AYG
     } completion:nil];
     
     _glkView.alpha = 0.0;
+    _aygLogoView.alpha = 0.0; // AYG
     _pageScrollView.alpha = 0.0;
     _pageControl.alpha = 0.0;
     _startButton.alpha = 0.0;
     
     [UIView animateWithDuration:0.3 delay:0.15 options:kNilOptions animations:^{
         _glkView.alpha = 1.0;
+        _aygLogoView.alpha = 1.0; // AYG
         _pageScrollView.alpha = 1.0;
         _pageControl.alpha = 1.0;
         _startButton.alpha = 1.0;
     } completion:nil];
+}
+
+// AYG: geometry of the logo slot. Mirrors the frame loadGL gives the GLKView, so the
+// static AyuGram mark lands exactly where Telegram's animation used to be.
+- (CGRect)aygLogoFrame
+{
+    bool isIpad = ([UIDevice currentDevice].userInterfaceIdiom == UIUserInterfaceIdiomPad);
+    CGFloat size = isIpad ? 200 * 1.2 : 200;
+    CGFloat height = isIpad ? 50 + 138 / 2 : 50;
+    return CGRectMake(self.view.bounds.size.width / 2 - size / 2, height, size, size);
+}
+
+// AYG: the intro shows a static round AyuGram mark instead of Telegram's OpenGL scene.
+// It must NOT hang off _glkView — loadGL returns immediately on the arm64 simulator,
+// so that view is nil there. This is a sibling in self.view, laid out and animated
+// alongside the (possibly absent) GL view.
+- (void)aygLoadLogo
+{
+    if (_aygLogoView != nil) {
+        return;
+    }
+    _aygLogoView = [[UIImageView alloc] initWithFrame:[self aygLogoFrame]];
+    _aygLogoView.autoresizingMask = UIViewAutoresizingFlexibleLeftMargin | UIViewAutoresizingFlexibleRightMargin;
+    _aygLogoView.contentMode = UIViewContentModeScaleAspectFit;
+    _aygLogoView.image = [UIImage imageNamed:@"AYGIntroLogo"];
+    [self.view addSubview:_aygLogoView];
 }
 
 - (void)loadGL
@@ -350,6 +387,7 @@ typedef enum {
     self.view.backgroundColor = _backgroundColor;
     
     [self loadGL];
+    [self aygLoadLogo];
     
     _wrapperView = [[UIScrollView alloc]initWithFrame:self.view.bounds];
     [self.view addSubview:_wrapperView];
@@ -390,9 +428,10 @@ typedef enum {
 }
 
 - (UIView *)createAnimationSnapshot {
-    UIImage *image = _glkView.snapshot;
-    UIImageView *imageView = [[UIImageView alloc] initWithFrame:_glkView.frame];
-    imageView.image = image;
+    // AYG: snapshot the AyuGram mark, not the GL framebuffer (absent on the simulator).
+    UIImageView *imageView = [[UIImageView alloc] initWithFrame:_aygLogoView.frame];
+    imageView.contentMode = _aygLogoView.contentMode;
+    imageView.image = _aygLogoView.image;
     return imageView;
 }
 
@@ -551,6 +590,7 @@ typedef enum {
     
     _pageControl.frame = CGRectMake(0, pageControlY, self.view.bounds.size.width, 7);
     _glkView.frame = CGRectChangedOriginY(_glkView.frame, glViewY - statusBarHeight);
+    _aygLogoView.frame = CGRectChangedOriginY([self aygLogoFrame], glViewY - statusBarHeight); // AYG
     
     CGFloat startButtonWidth = MIN(430.0 - 48.0, self.view.bounds.size.width - 48.0f);
     UIView *startButton = self.createStartButton(startButtonWidth);

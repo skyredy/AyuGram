@@ -111,6 +111,16 @@ public func chatMessageGalleryControllerData(
     if message.id.peerId.namespace == Namespaces.Peer.CloudUser && message.id.namespace != Namespaces.Message.Cloud {
         standalone = true
     }
+
+    // AYG: keep view-once media. A kept one-time photo opens in the ordinary gallery
+    // rather than `SecretMediaPreviewController`, whose whole job is to count the single
+    // view down and dismiss itself. It has to open *standalone*: `tagsForStoreMessage`
+    // gives one-time media no `.photoOrVideo` tag, so a `.peerMessagesAtId` source would
+    // page the peer's media index and never find this message — an empty gallery.
+    let aygKeepsViewOnce = aygKeepsViewOnceMedia(message)
+    if aygKeepsViewOnce {
+        standalone = true
+    }
     
     var galleryMedia: EngineRawMedia?
     var otherMedia: EngineRawMedia?
@@ -202,7 +212,12 @@ public func chatMessageGalleryControllerData(
         }
     }
     
-    var stream = false
+    // AYG: kept one-time media has to stream. It is never auto-downloaded — vanilla
+    // fetches it to a temp file at the moment `SecretMediaPreviewController` opens, and
+    // that controller is exactly what we skip. The ordinary gallery is built with
+    // `streamVideos: false` because it assumes the file is already on disk, so a kept
+    // one-time video otherwise sits on its thumbnail forever.
+    var stream = aygKeepsViewOnce
     var autoplayingVideo = false
     var landscape = false
     var timecode: Double? = nil
@@ -314,7 +329,9 @@ public func chatMessageGalleryControllerData(
                 }, baseNavigationController: navigationController, actionInteraction: actionInteraction)
                 gallery.temporaryDoNotWaitForReady = autoplayingVideo
                 return .gallery(.single(gallery))
-            } else if message.containsSecretMedia {
+            } else if message.containsSecretMedia && !aygKeepsViewOnce {
+                // AYG: `&& !aygKeepsViewOnce` — kept one-time media falls through to the
+                // ordinary gallery below.
                 let gallery = SecretMediaPreviewController(context: context, messageId: message.id)
                 return .secretGallery(gallery)
             } else {

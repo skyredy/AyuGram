@@ -1,0 +1,10 @@
+The AyuGram feature layer in this repository — this module, the AYG* sources
+under submodules/TelegramCore, and the hooks they rely on in Telegram's own
+files — originates from:
+
+    https://github.com/ichmagmaus111/ayugram-ios
+
+Both that project and this one are derivative works of Telegram for iOS
+(https://github.com/TelegramMessenger/Telegram-iOS) and are distributed under
+the same GNU General Public License, which is what permits this reuse. The
+license text in the repository root applies unchanged.

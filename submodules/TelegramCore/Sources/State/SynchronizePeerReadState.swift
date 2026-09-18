@@ -227,6 +227,29 @@ private func validatePeerReadState(network: Network, postbox: Postbox, stateMana
 }
 
 private func pushPeerReadState(network: Network, postbox: Postbox, stateManager: AccountStateManager, peerId: PeerId, readState: PeerReadState) -> Signal<PeerReadState, PeerReadStateValidationError> {
+    // AYG: Ghost Mode — "Don't Read Messages". This is the one place the client tells the
+    // server how far the user has read, so it is where the receipt is withheld. The local
+    // read state is still returned unchanged, so the chat clears its unread badge on this
+    // device; only the network request is dropped.
+    //
+    // Secret chats are exempt: their read state travels through the E2E layer and is
+    // suppressed earlier, in `_internal_markMessageContentAsConsumedInteractively`.
+    //
+    // The allowance is "Read on Interact" punching through on purpose — it wants the
+    // receipt to land, bounded to what the user actually acted on.
+    let aygPeerIdInt = peerId.toInt64()
+    if peerId.namespace != Namespaces.Peer.SecretChat,
+       !AYGGhostModeManager.shared.hasReadSyncAllowance(for: aygPeerIdInt),
+       AYGGhostModeManager.shared.shouldHideReadReceipts(forAccount: stateManager.accountPeerId, peerId: aygPeerIdInt) {
+        // Record that the server is now behind for this peer, so nothing later assumes
+        // the sender has seen a read it was never told about.
+        AYGGhostModeManager.shared.ensureServerSyncTracking(peerId: aygPeerIdInt)
+        return .single(readState)
+    }
+    if case let .idBased(maxIncomingReadId, _, _, _, _) = readState {
+        AYGGhostModeManager.shared.markSyncedToServer(peerId: aygPeerIdInt, maxMessageId: maxIncomingReadId)
+    }
+
     if peerId.namespace == Namespaces.Peer.SecretChat {
         return inputSecretChat(postbox: postbox, peerId: peerId)
         |> mapToSignal { inputPeer -> Signal<PeerReadState, PeerReadStateValidationError> in

@@ -4508,7 +4508,12 @@ public class ChatListControllerImpl: TelegramBaseController, ChatListController 
             if let componentView = self.chatListHeaderView() {
                 componentView.storyPeerListView()?.setPreviewedItem(signal: storyContainerScreen.focusedItem)
             }
-            self.push(storyContainerScreen)
+            // AYG: Story Ghost Mode Alert. The `openPeerStoriesCustom` branch above asks
+            // for itself; this is the fallback that builds the screen directly. Nothing is
+            // hidden on this path, so there is nothing to undo when the alert is dismissed.
+            aygSuggestGhostModeBeforeStory(context: self.context) { [weak self] in
+                self?.push(storyContainerScreen)
+            }
         })
     }
     

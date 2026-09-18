@@ -142,6 +142,21 @@ private func actionFromActivity(_ activity: PeerInputActivity?) -> Api.SendMessa
 }
 
 private func requestActivity(postbox: Postbox, network: Network, accountPeerId: PeerId, peerId: PeerId, threadId: Int64?, activity: PeerInputActivity?) -> Signal<Void, NoError> {
+    // AYG: Ghost Mode — "Don't Send Typing". Everything the chat sees you doing goes out
+    // through `messages.setTyping` below, so this is the single choke point for typing,
+    // recording, uploading and sticker-picking alike.
+    //
+    // A nil activity is the trailing "stopped" cancel. It is only dropped when nothing at
+    // all was allowed through: if some status did reach the chat, the cancel has to follow
+    // it or the peer is left looking at a status that never clears.
+    if let activity = activity {
+        if AYGGhostModeManager.shared.shouldHideActivity(AYGGhostModeActivityKind(activity), forAccount: accountPeerId, peerId: peerId.toInt64()) {
+            return .complete()
+        }
+    } else if AYGGhostModeManager.shared.shouldHideAllActivities(forAccount: accountPeerId, peerId: peerId.toInt64()) {
+        return .complete()
+    }
+
     return postbox.transaction { transaction -> Signal<Void, NoError> in
         if let peer = transaction.getPeer(peerId) {
             if peerId == accountPeerId {

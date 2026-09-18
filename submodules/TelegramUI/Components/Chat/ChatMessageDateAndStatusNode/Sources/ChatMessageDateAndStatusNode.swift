@@ -203,6 +203,10 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
         var canViewReactionList: Bool
         var animationCache: AnimationCache
         var animationRenderer: MultiAnimationRenderer
+        // AYG: the message was kept by anti-delete, so AyuGram's deleted mark goes
+        // immediately left of the timestamp. Defaulted, so a status site that has no
+        // message in scope needs no change.
+        var aygIsDeleted: Bool
         
         public init(
             context: AccountContext,
@@ -228,7 +232,8 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             hasAutoremove: Bool,
             canViewReactionList: Bool,
             animationCache: AnimationCache,
-            animationRenderer: MultiAnimationRenderer
+            animationRenderer: MultiAnimationRenderer,
+            aygIsDeleted: Bool = false
         ) {
             self.context = context
             self.presentationData = presentationData
@@ -254,6 +259,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             self.canViewReactionList = canViewReactionList
             self.animationCache = animationCache
             self.animationRenderer = animationRenderer
+            self.aygIsDeleted = aygIsDeleted
         }
     }
     
@@ -265,6 +271,8 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
     private var clockMinNode: ASImageNode?
     private let dateNode: TextNode
     private var impressionIcon: ASImageNode?
+    // AYG: the deleted mark, drawn between the views icon and the time text.
+    private var aygDeletedMarkIcon: ASImageNode?
     private var reactionNodes: [MessageReaction.Reaction: StatusReactionNode] = [:]
     private let reactionButtonsContainer = ReactionButtonsAsyncLayoutContainer()
     private var reactionButtonNode: HighlightTrackingButtonNode?
@@ -326,6 +334,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
         
         var currentBackgroundNode = self.backgroundNode
         var currentImpressionIcon = self.impressionIcon
+        var currentAygDeletedMarkIcon = self.aygDeletedMarkIcon
         var currentRepliesIcon = self.repliesIcon
         var currentStarsIcon = self.starsIcon
 
@@ -576,6 +585,30 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
                 currentImpressionIcon = nil
             }
             
+            // AYG: AyuGram prepends the mark to the time string and grows the measured
+            // width by the glyph's own width. `dateColor` is this message type's
+            // in-bubble timestamp colour, which is what picker index 0 means.
+            var aygDeletedMarkSize = CGSize()
+            var aygDeletedMarkWidth: CGFloat = 0.0
+            var aygDeletedMarkImage: UIImage?
+            if arguments.aygIsDeleted {
+                aygDeletedMarkImage = aygDeletedMarkStatusImage(defaultColor: dateColor)
+            }
+            if let aygDeletedMarkImage {
+                if currentAygDeletedMarkIcon == nil {
+                    let iconNode = ASImageNode()
+                    iconNode.isLayerBacked = true
+                    iconNode.displayWithoutProcessing = true
+                    iconNode.displaysAsynchronously = false
+                    currentAygDeletedMarkIcon = iconNode
+                }
+                aygDeletedMarkSize = aygDeletedMarkImage.size
+                // The trailing 3.0 is the space AyuGram appends after the glyph.
+                aygDeletedMarkWidth = aygDeletedMarkSize.width + 3.0
+            } else {
+                currentAygDeletedMarkIcon = nil
+            }
+            
             var repliesIconSize = CGSize()
             if let repliesImage = repliesImage {
                 if currentRepliesIcon == nil {
@@ -638,7 +671,7 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
                         clockMinNode?.displayWithoutProcessing = true
                         clockMinNode?.frame = CGRect(origin: CGPoint(), size: clockMinImage?.size ?? CGSize())
                     }
-                    clockPosition = CGPoint(x: leftInset + date.size.width + 8.5, y: 7.5 + offset)
+                    clockPosition = CGPoint(x: leftInset + aygDeletedMarkWidth + date.size.width + 8.5, y: 7.5 + offset)
                 case let .Sent(read):
                     let hideStatus: Bool
                     switch arguments.type {
@@ -678,9 +711,9 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
                         let checkSize = loadedCheckFullImage!.size
                         
                         if read {
-                            checkReadFrame = CGRect(origin: CGPoint(x: leftInset + impressionWidth + date.size.width + 5.0 + statusWidth - checkSize.width, y: 3.0 + offset), size: checkSize)
+                            checkReadFrame = CGRect(origin: CGPoint(x: leftInset + impressionWidth + aygDeletedMarkWidth + date.size.width + 5.0 + statusWidth - checkSize.width, y: 3.0 + offset), size: checkSize)
                         }
-                        checkSentFrame = CGRect(origin: CGPoint(x: leftInset + impressionWidth + date.size.width + 5.0 + statusWidth - checkSize.width - checkOffset, y: 3.0 + offset), size: checkSize)
+                        checkSentFrame = CGRect(origin: CGPoint(x: leftInset + impressionWidth + aygDeletedMarkWidth + date.size.width + 5.0 + statusWidth - checkSize.width - checkOffset, y: 3.0 + offset), size: checkSize)
                     }
                 case .Failed:
                     statusWidth = 0.0
@@ -769,7 +802,9 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
             
             leftInset += reactionInset
             
-            let layoutSize = CGSize(width: leftInset + impressionWidth + date.size.width + statusWidth + backgroundInsets.left + backgroundInsets.right, height: date.size.height + backgroundInsets.top + backgroundInsets.bottom)
+            // AYG: `+ aygDeletedMarkWidth` — the mark is inside the status block, so the
+            // block has to measure wider or it would draw over the time text.
+            let layoutSize = CGSize(width: leftInset + impressionWidth + aygDeletedMarkWidth + date.size.width + statusWidth + backgroundInsets.left + backgroundInsets.right, height: date.size.height + backgroundInsets.top + backgroundInsets.bottom)
             
             let verticalReactionsInset: CGFloat
             let verticalInset: CGFloat
@@ -1112,7 +1147,27 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
                             strongSelf.impressionIcon = nil
                         }
                         
-                        animation.animator.updateFrame(layer: strongSelf.dateNode.layer, frame: CGRect(origin: CGPoint(x: leftOffset + leftInset + backgroundInsets.left + impressionWidth, y: backgroundInsets.top + 1.0 + offset + verticalInset), size: date.size), completion: nil)
+                        // AYG: the deleted mark sits between the views icon and the time,
+                        // vertically centred on the time exactly as the views icon is.
+                        if let currentAygDeletedMarkIcon {
+                            let markFrame = CGRect(origin: CGPoint(x: leftOffset + leftInset + backgroundInsets.left + impressionWidth + aygDeletedMarkStatusOffsetX, y: backgroundInsets.top + 1.0 + offset + verticalInset + floor((date.size.height - aygDeletedMarkSize.height) / 2.0)), size: aygDeletedMarkSize)
+                            currentAygDeletedMarkIcon.displaysAsynchronously = false
+                            if currentAygDeletedMarkIcon.image !== aygDeletedMarkImage {
+                                currentAygDeletedMarkIcon.image = aygDeletedMarkImage
+                            }
+                            if currentAygDeletedMarkIcon.supernode == nil {
+                                strongSelf.aygDeletedMarkIcon = currentAygDeletedMarkIcon
+                                strongSelf.addSubnode(currentAygDeletedMarkIcon)
+                                currentAygDeletedMarkIcon.frame = markFrame
+                            } else {
+                                animation.animator.updateFrame(layer: currentAygDeletedMarkIcon.layer, frame: markFrame, completion: nil)
+                            }
+                        } else if let aygDeletedMarkIcon = strongSelf.aygDeletedMarkIcon {
+                            aygDeletedMarkIcon.removeFromSupernode()
+                            strongSelf.aygDeletedMarkIcon = nil
+                        }
+                        
+                        animation.animator.updateFrame(layer: strongSelf.dateNode.layer, frame: CGRect(origin: CGPoint(x: leftOffset + leftInset + backgroundInsets.left + impressionWidth + aygDeletedMarkWidth, y: backgroundInsets.top + 1.0 + offset + verticalInset), size: date.size), completion: nil)
                         
                         if let clockFrameNode = clockFrameNode {
                             let clockPosition = CGPoint(x: leftOffset + backgroundInsets.left + clockPosition.x + reactionInset, y: backgroundInsets.top + clockPosition.y + verticalInset)

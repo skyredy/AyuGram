@@ -3,6 +3,7 @@ import UIKit
 import Display
 import AsyncDisplayKit
 import TelegramCore
+import AyuGramUI
 import SwiftSignalKit
 import TelegramPresentationData
 import AccountContext
@@ -199,6 +200,17 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
     }
     
     public func addRootControllers(showCallsTab: Bool) {
+        // AYG: local Telegram Premium writes `.isPremium` onto the account peer, and the
+        // first server sync after launch drops it again. Start the keeper here, where the
+        // account's UI comes up, rather than waiting for the user to open Customization.
+        AYGLocalPremiumManager.shared.keepPremiumFlag(account: self.context.account)
+        // AYG: one observer for the whole app raises the "this one-time media will
+        // not burn" notices; the consume path in TelegramCore posts to it.
+        aygObserveViewOnceNotices(context: self.context)
+        // AYG: and keep AyuGram's own strings on Telegram's language rather than the
+        // system's — the two differ whenever the user has set a language in-app.
+        aygObserveStringsLanguage(context: self.context)
+
         let tabBarController = TabBarControllerImpl(theme: self.presentationData.theme, strings: self.presentationData.strings)
         tabBarController.navigationPresentation = .master
         let chatListController = self.context.sharedContext.makeChatListController(context: self.context, location: .chatList(groupId: .root), controlsHistoryPreload: true, hideNetworkActivityStatus: false, previewing: false, enableDebugActions: !GlobalExperimentalSettings.isAppStoreBuild)

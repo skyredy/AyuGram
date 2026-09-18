@@ -22,11 +22,13 @@ public enum UpdateMessageReaction {
 }
 
 public func updateMessageReactionsInteractively(account: Account, messageIds: [MessageId], reactions: [UpdateMessageReaction], isLarge: Bool, storeAsRecentlyUsed: Bool, add: Bool = false) -> Signal<Never, NoError> {
-    return account.postbox.transaction { transaction -> Void in
+    // AYG: the transaction now hands back the message id Ghost Mode's "Read on Interact"
+    // read up to, so the state manager can be notified *outside* it — see the map below.
+    return account.postbox.transaction { transaction -> MessageId? in
         guard let chatPeerId = messageIds.first?.peerId else {
-            return
+            return nil
         }
-        
+
         var messagesWithoutGroups: [Message] = []
         var messagesByGroupId: [Int64: [Message]] = [:]
         
@@ -167,6 +169,47 @@ public func updateMessageReactionsInteractively(account: Account, messageIds: [M
                 
                 return .update(StoreMessage(id: currentMessage.id, customStableId: nil, globallyUniqueId: currentMessage.globallyUniqueId, groupingKey: currentMessage.groupingKey, threadId: currentMessage.threadId, timestamp: currentMessage.timestamp, flags: StoreMessageFlags(currentMessage.flags), tags: currentMessage.tags, globalTags: currentMessage.globalTags, localTags: currentMessage.localTags, forwardInfo: storeForwardInfo, authorId: currentMessage.author?.id, text: currentMessage.text, attributes: attributes, media: currentMessage.media))
             })
+        }
+
+        // AYG: Ghost Mode — "Read on Interact". A reaction is an interaction, so it marks
+        // the chat read. Unlike sending a message (which reads the whole chat, see
+        // `enqueueMessages`) this reads only up to the message the reaction lands on, so
+        // anything newer stays unread. It is keyed off `messages` — what the user actually
+        // tapped — rather than the `messageIds` collapsed above, which reduce an album to
+        // its oldest item. An empty `reactions` means the reaction is being *removed*;
+        // that is not an interaction and must not read anything.
+        var aygReadMessageId: MessageId?
+        if !reactions.isEmpty,
+           AYGGhostModeManager.shared.shouldReadOnAction(forAccount: account.peerId, peerId: chatPeerId.toInt64()),
+           chatPeerId.namespace == Namespaces.Peer.CloudUser ||
+           chatPeerId.namespace == Namespaces.Peer.CloudGroup ||
+           chatPeerId.namespace == Namespaces.Peer.CloudChannel {
+            var maxIndex: MessageIndex?
+            for message in messages where message.id.namespace == Namespaces.Message.Cloud {
+                let index = message.index
+                if let current = maxIndex {
+                    if index > current {
+                        maxIndex = index
+                    }
+                } else {
+                    maxIndex = index
+                }
+            }
+            if let maxIndex {
+                AYGGhostModeManager.shared.allowReadSyncTemporarily(duration: 3.0)
+                let _ = transaction.applyInteractiveReadMaxIndex(maxIndex)
+                aygReadMessageId = maxIndex.id
+            }
+        }
+
+        return aygReadMessageId
+    }
+    // AYG: notify outside the transaction — `notifyAppliedIncomingReadMessages` hops to
+    // the state manager's queue and dispatch_syncs back into Postbox, which deadlocks
+    // when it is called from inside one.
+    |> map { aygReadMessageId -> Void in
+        if let aygReadMessageId {
+            account.stateManager.notifyAppliedIncomingReadMessages([aygReadMessageId])
         }
     }
     |> ignoreValues

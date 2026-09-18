@@ -1794,7 +1794,8 @@ public final class StoryItemSetContainerComponent: Component {
                         if case .liveStream = component.slice.item.storyItem.media {
                             displayFooter = false
                         }
-                        if component.slice.item.storyItem.isForwardingDisabled {
+                        // AYG: the story footer's share button.
+                        if component.slice.item.storyItem.aygIsForwardingDisabled {
                             canShare = false
                         }
                         
@@ -3237,7 +3238,8 @@ public final class StoryItemSetContainerComponent: Component {
                             }
                         },
                         timeoutAction: nil,
-                        forwardAction: (!isLiveStream && component.slice.item.storyItem.isPublic && !component.slice.item.storyItem.isForwardingDisabled) ? { [weak self] in
+                        // AYG: the repost action.
+                        forwardAction: (!isLiveStream && component.slice.item.storyItem.isPublic && !component.slice.item.storyItem.aygIsForwardingDisabled) ? { [weak self] in
                             guard let self else {
                                 return
                             }
@@ -5722,7 +5724,12 @@ public final class StoryItemSetContainerComponent: Component {
                     }
                 )
                 viewListView?.setPreviewedItem(signal: storyContainerScreen.focusedItem)
-                controller.push(storyContainerScreen)
+                // AYG: Story Ghost Mode Alert. `RepostStoriesContentContextImpl.markAsSeen`
+                // marks unconditionally — its `readGlobally` flag is not consulted — so
+                // opening a repost from inside the viewer records a view and is gated too.
+                aygSuggestGhostModeBeforeStory(context: context) { [weak controller] in
+                    controller?.push(storyContainerScreen)
+                }
             })
         }
         
@@ -7421,7 +7428,8 @@ public final class StoryItemSetContainerComponent: Component {
                             }
                             self.beginPictureInPicture()
                         })))
-                    } else if !component.slice.item.storyItem.isForwardingDisabled {
+                    // AYG: "Save to Gallery" in the story context menu. Purely local.
+                    } else if !component.slice.item.storyItem.aygIsForwardingDisabled {
                         let saveText: String = component.strings.Story_Context_SaveToGallery
                         items.append(.action(ContextMenuActionItem(text: saveText, icon: { theme in
                             return generateTintedImage(image: UIImage(bundleImageName: accountUser.isPremium ? "Chat/Context Menu/Download" : "Chat/Context Menu/DownloadLocked"), color: theme.contextMenu.primaryColor)

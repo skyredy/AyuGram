@@ -2294,7 +2294,18 @@ public final class ShareController: ViewController {
                         
                         let correlationId = Int64.random(in: Int64.min ... Int64.max)
                         correlationIds.append(correlationId)
-                        messagesToEnqueue.append(.forward(source: message.id, threadId: threadId, grouping: .auto, attributes: [], correlationId: correlationId))
+                        // AYG: the share sheet is now reachable for a content-protected
+                        // message, and a plain `.forward` of one is refused server-side.
+                        // Re-send it as a copy instead — same mechanism as the Forward
+                        // button, see `ChatControllerImpl.aygBuildForwardEnqueueMessages`.
+                        // A private chat's Restricted Saving is invisible from here (it
+                        // lives on `CachedUserData`, which a `Message` does not carry), so
+                        // that case still goes out as a real forward and still fails.
+                        if message.aygShouldUseCopyForward(withBypassEnabled: AYGForwardingManager.shared.ignoresCopyProtection), let copyMessage = message.aygCopyForwardEnqueueMessage(threadId: threadId, hideCaptions: false, localGroupingKey: nil) {
+                            messagesToEnqueue.append(copyMessage.withUpdatedCorrelationId(correlationId))
+                        } else {
+                            messagesToEnqueue.append(.forward(source: message.id, threadId: threadId, grouping: .auto, attributes: [], correlationId: correlationId))
+                        }
                     }
                     messagesToEnqueue = transformMessages(messagesToEnqueue, showNames: showNames, silently: silently, sendPaidMessageStars: requiresStars[peerId])
                     shareSignals.append(enqueueMessages(account: currentContext.context.account, peerId: peerId, messages: messagesToEnqueue))

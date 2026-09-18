@@ -9,6 +9,7 @@ import AppBundle
 import AccountContext
 import TelegramAudio
 import TelegramVoip
+import AyuGramUI
 
 private let sharedProviderDelegate: CallKitProviderDelegate? = {
     return CallKitProviderDelegate()
@@ -158,15 +159,16 @@ class CallKitProviderDelegate: NSObject, CXProviderDelegate {
     }
     
     private static func providerConfiguration() -> CXProviderConfiguration {
-        let providerConfiguration = CXProviderConfiguration(localizedName: "Telegram")
+        // AYG: this is what iOS renders on the Dynamic Island (and in the system
+        // call UI) for an ongoing call. Upstream set the name to "Telegram" and
+        // supplied the Telegram paper-plane as `iconTemplateImageData`, which
+        // CallKit tints blue — that badge is dropped, and the label is ours.
+        let providerConfiguration = CXProviderConfiguration(localizedName: aygAppName)
         
         providerConfiguration.supportsVideo = true
         providerConfiguration.maximumCallsPerCallGroup = 1
         providerConfiguration.maximumCallGroups = 1
         providerConfiguration.supportedHandleTypes = [.phoneNumber, .generic]
-        if let image = UIImage(named: "Call/CallKitLogo", in: getAppBundle(), compatibleWith: nil) {
-            providerConfiguration.iconTemplateImageData = image.pngData()
-        }
         
         return providerConfiguration
     }
