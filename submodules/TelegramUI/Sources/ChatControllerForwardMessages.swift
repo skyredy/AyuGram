@@ -14,7 +14,104 @@ import ReactionSelectionNode
 import TopMessageReactions
 import ChatMessagePaymentAlertController
 
+// AYG: the one enforcement site the server can see.
+//
+// Every other content-protection gate in the app is local UI, and unlocking it is a
+// boolean (see `AYGForwardingManager`). `messages.forwardMessages` is not: forwarding out
+// of a `noforwards` chat is refused server-side with `CHAT_FORWARDS_RESTRICTED`, and a
+// secret chat has no forward RPC at all. So unlocking the Forward button on its own would
+// just produce a failed send.
+//
+// AyuGram for Android answers this with `AyuForward.intelligentForward`: it splits the
+// selection into runs of "can be forwarded" and "cannot", forwards the first kind
+// normally, and *re-sends* the second kind as brand-new messages built from the local
+// copy of the media (its `AyuForwardStatusLoadingMedia` — "Loading media" — is that
+// download step). This is the iOS shape of the same thing; the per-message build lives in
+// `Message.aygCopyForwardEnqueueMessage` in TelegramCore so every forward call site can
+// reach it.
+//
+// What is lost versus a real forward: the "Forwarded from" header, the original date, the
+// grouping of an album, and reply links. That is inherent — a copy is a new message.
+enum AYGForwardEnqueueMessagesResult {
+    case messages([EnqueueMessage])
+    /// At least one message needs the copy path and cannot be reproduced (a poll, paid
+    /// content, a view-once). Telling the user beats sending half a selection.
+    case unsupported
+}
+
 extension ChatControllerImpl {
+    /// Whether this message must be re-sent as a copy rather than forwarded.
+    ///
+    /// `Message.aygRequiresCopyForward` covers the channel/group `noforwards` bit, the
+    /// per-message flag and secret chats. A *private* chat's Restricted Saving lives on
+    /// `CachedUserData`, which a `Message` does not carry, so it has to come from the
+    /// current chat state — and only when the message actually belongs to this chat.
+    func aygMessageNeedsCopyForward(_ message: EngineRawMessage) -> Bool {
+        if message.aygRequiresCopyForward {
+            return true
+        }
+        if case let .peer(peerId) = self.chatLocation, peerId == message.id.peerId {
+            if self.presentationInterfaceState.myCopyProtectionEnabled {
+                return true
+            }
+            // NOT `presentationInterfaceState.copyProtectionEnabled`: that one is already
+            // bypassed by the time it gets here, so it always reads false while the
+            // setting is on. The forward path needs the truth, which is on the cached data.
+            if let cachedUserData = self.contentData?.state.peerView?.cachedData as? CachedUserData, cachedUserData.aygIsCopyProtectionEnabledIgnoringBypass {
+                return true
+            }
+        }
+        return false
+    }
+
+    func aygForwardMessagesNeedCopyForward(_ messages: [EngineRawMessage]) -> Bool {
+        return messages.contains(where: { self.aygMessageNeedsCopyForward($0) })
+    }
+
+    /// Map a selection onto what to actually enqueue: a real `.forward` where one would
+    /// be accepted, a rebuilt `.message` where it would not.
+    func aygBuildForwardEnqueueMessages(from messages: [EngineRawMessage], options: ChatInterfaceForwardOptionsState?, threadId: Int64?) -> AYGForwardEnqueueMessagesResult {
+        let forwardAttributes: [EngineMessage.Attribute] = [
+            ForwardOptionsMessageAttribute(hideNames: options?.hideNames == true, hideCaptions: options?.hideCaptions == true)
+        ]
+        var result: [EnqueueMessage] = []
+
+        for message in messages {
+            if self.aygMessageNeedsCopyForward(message) {
+                guard AYGForwardingManager.shared.ignoresCopyProtection else {
+                    return .unsupported
+                }
+                if let copyMessage = message.aygCopyForwardEnqueueMessage(threadId: threadId, hideCaptions: options?.hideCaptions == true, localGroupingKey: nil) {
+                    result.append(copyMessage)
+                } else {
+                    return .unsupported
+                }
+            } else {
+                result.append(.forward(source: message.id, threadId: threadId, grouping: .auto, attributes: forwardAttributes, correlationId: nil))
+            }
+        }
+
+        return .messages(result)
+    }
+
+    /// AyuGram's own wording for this case is `UnforwardableContextMenuText` — "Plain
+    /// forwarding is not allowed." — which it uses as a context-menu label rather than an
+    /// alert. Strings are hardcoded English in this fork.
+    func aygPresentUnsupportedCopyForwardAlert(in controller: ViewController?) {
+        let presentationData = self.context.sharedContext.currentPresentationData.with { $0 }
+        let alert = textAlertController(
+            context: self.context,
+            title: nil,
+            text: "Plain forwarding is not allowed, and this message type cannot be copied.",
+            actions: [TextAlertAction(type: .defaultAction, title: presentationData.strings.Common_OK, action: {})]
+        )
+        if let controller {
+            controller.present(alert, in: .window(.root))
+        } else {
+            self.present(alert, in: .window(.root))
+        }
+    }
+
     func forwardMessages(messageIds: [EngineMessage.Id], options: ChatInterfaceForwardOptionsState? = nil, resetCurrent: Bool = false) {
         let _ = (self.context.engine.data.get(EngineDataMap(
             messageIds.map(TelegramEngine.EngineData.Item.Messages.Message.init)
@@ -52,7 +149,7 @@ extension ChatControllerImpl {
             var attemptSelectionImpl: ((EnginePeer, ChatListDisabledPeerReason) -> Void)?
             let controller = self.context.sharedContext.makePeerSelectionController(PeerSelectionControllerParams(context: self.context, updatedPresentationData: self.updatedPresentationData, filter: filter, hasFilters: true, attemptSelection: { peer, _, reason in
                 attemptSelectionImpl?(peer, reason)
-            }, multipleSelection: true, forwardedMessageIds: messages.map { $0.id }, selectForumThreads: true))
+            }, multipleSelection: true, forwardedMessageIds: self.aygForwardMessagesNeedCopyForward(messages) && AYGForwardingManager.shared.ignoresCopyProtection ? [] : messages.map { $0.id }, selectForumThreads: true))
             let context = self.context
             attemptSelectionImpl = { [weak self, weak controller] peer, reason in
                 guard let strongSelf = self, let controller = controller else {
@@ -152,12 +249,14 @@ extension ChatControllerImpl {
                             }
                         }
                         
-                        var attributes: [EngineMessage.Attribute] = []
-                        attributes.append(ForwardOptionsMessageAttribute(hideNames: forwardOptions?.hideNames == true, hideCaptions: forwardOptions?.hideCaptions == true))
-                        
-                        result.append(contentsOf: messages.map { message -> EnqueueMessage in
-                            return .forward(source: message.id, threadId: nil, grouping: .auto, attributes: attributes, correlationId: nil)
-                        })
+                        // AYG: `.forward` where the server would accept one, a rebuilt copy where it would not.
+                        switch strongSelf.aygBuildForwardEnqueueMessages(from: messages, options: forwardOptions, threadId: nil) {
+                        case let .messages(builtMessages):
+                            result.append(contentsOf: builtMessages)
+                        case .unsupported:
+                            strongSelf.aygPresentUnsupportedCopyForwardAlert(in: nil)
+                            return
+                        }
                         
                         let commit: ([EnqueueMessage]) -> Void = { result in
                             guard let strongSelf = self else {
@@ -373,7 +472,11 @@ extension ChatControllerImpl {
                     }
                 }
                 
-                if case .peer(peerId) = strongSelf.chatLocation, strongSelf.parentController == nil, !isPinnedMessages {
+                // AYG: `&& !aygNeedsCopyForward` — staging into an input panel routes the
+                // send back through the plain `.forward` path, which the server refuses for a
+                // protected source. Falling through puts it on the copy path below instead.
+                let aygNeedsCopyForward = strongSelf.aygForwardMessagesNeedCopyForward(messages) && AYGForwardingManager.shared.ignoresCopyProtection
+                if case .peer(peerId) = strongSelf.chatLocation, strongSelf.parentController == nil, !isPinnedMessages, !aygNeedsCopyForward {
                     strongSelf.updateChatPresentationInterfaceState(animated: false, interactive: true, { $0.updatedInterfaceState({ $0.withUpdatedForwardMessageIds(messages.map { $0.id }).withUpdatedForwardOptionsState(ChatInterfaceForwardOptionsState(hideNames: !hasNotOwnMessages, hideCaptions: false, unhideNamesOnCaptionChange: false)).withoutSelectionState() }).updatedSearch(nil) })
                     strongSelf.updateItemNodesSearchTextHighlightStates()
                     strongSelf.searchResultsController = nil
@@ -390,11 +493,21 @@ extension ChatControllerImpl {
                         reactionItems = .single([])
                     }
                     
+                    // AYG: Saved Messages is the most common destination for "save this out
+                    // of a protected channel", so it needs the copy path too.
                     var correlationIds: [Int64] = []
-                    let mappedMessages = messages.map { message -> EnqueueMessage in
+                    let builtMessages: [EnqueueMessage]
+                    switch strongSelf.aygBuildForwardEnqueueMessages(from: messages, options: nil, threadId: nil) {
+                    case let .messages(value):
+                        builtMessages = value
+                    case .unsupported:
+                        strongSelf.aygPresentUnsupportedCopyForwardAlert(in: strongController)
+                        return
+                    }
+                    let mappedMessages = builtMessages.map { message -> EnqueueMessage in
                         let correlationId = Int64.random(in: Int64.min ... Int64.max)
                         correlationIds.append(correlationId)
-                        return .forward(source: message.id, threadId: nil, grouping: .auto, attributes: [], correlationId: correlationId)
+                        return message.withUpdatedCorrelationId(correlationId)
                     }
                     
                     let _ = (reactionItems
@@ -447,6 +560,36 @@ extension ChatControllerImpl {
                     strongSelf.updateChatPresentationInterfaceState(animated: false, interactive: true, { $0.updatedInterfaceState({ $0.withoutSelectionState() }) })
                     strongController.dismiss()
                 } else {
+                    // AYG: staging a copy-forward into the target chat's input panel would
+                    // route it back through the plain `.forward` path, which is exactly what
+                    // the server refuses. Send it straight away instead, and say so with the
+                    // same toast a normal forward shows.
+                    if aygNeedsCopyForward {
+                        let forwardOptions = options ?? ChatInterfaceForwardOptionsState(hideNames: !hasNotOwnMessages, hideCaptions: false, unhideNamesOnCaptionChange: false)
+                        let mappedMessages: [EnqueueMessage]
+                        switch strongSelf.aygBuildForwardEnqueueMessages(from: messages, options: forwardOptions, threadId: threadId) {
+                        case let .messages(value):
+                            mappedMessages = value
+                        case .unsupported:
+                            strongSelf.aygPresentUnsupportedCopyForwardAlert(in: strongController)
+                            return
+                        }
+
+                        let _ = enqueueMessages(account: strongSelf.context.account, peerId: peerId, messages: mappedMessages).startStandalone()
+
+                        let presentationData = strongSelf.context.sharedContext.currentPresentationData.with { $0 }
+                        var peerName = peer.displayTitle(strings: presentationData.strings, displayOrder: presentationData.nameDisplayOrder)
+                        peerName = peerName.replacingOccurrences(of: "**", with: "")
+                        let text = messages.count == 1 ? presentationData.strings.Conversation_ForwardTooltip_Chat_One(peerName).string : presentationData.strings.Conversation_ForwardTooltip_Chat_Many(peerName).string
+                        strongSelf.present(UndoOverlayController(presentationData: presentationData, content: .forward(savedMessages: false, text: text), elevatedLayout: false, position: .bottom, animateInAsReplacement: true, action: { _ in
+                            return false
+                        }), in: .current)
+
+                        strongSelf.updateChatPresentationInterfaceState(animated: false, interactive: true, { $0.updatedInterfaceState({ $0.withoutSelectionState() }) })
+                        strongController.dismiss()
+                        return
+                    }
+
                     if let navigationController = strongSelf.navigationController as? NavigationController {
                         for controller in navigationController.viewControllers {
                             if let maybeChat = controller as? ChatControllerImpl {

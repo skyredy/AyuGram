@@ -61,6 +61,13 @@ public struct ItemListBackButton: Equatable {
 public enum ItemListControllerTitle: Equatable {
     case text(String)
     case textWithSubtitle(String, String)
+    // AYG: a caller-owned title view, for the fork's Edits History and Deleted
+    // Messages screens — they stand in for a conversation and carry Telegram's own
+    // `ChatTitleView`. Every case below reassigns `navigationItem.titleView` on each
+    // state emission, so setting it from outside does not survive; this is the only
+    // way to hand one in. The view must be a single stable instance, like the `.node`
+    // navigation buttons.
+    case customView(UIView)
     case sectionControl([String], Int)
     case textWithTabs(String, [String], Int)
 }
@@ -342,6 +349,18 @@ open class ItemListController: ViewController, KeyShortcutResponder, Presentable
                             case let .text(text):
                                 strongSelf.title = text
                                 strongSelf.navigationItem.titleView = nil
+                                strongSelf.segmentedTitleView = nil
+                                if previousHadContentNode {
+                                    strongSelf.navigationBar?.setContentNode(nil, animated: false)
+                                }
+                                if strongSelf.isNodeLoaded {
+                                    strongSelf.controllerNode.panRecognizer?.isEnabled = false
+                                }
+                            case let .customView(view):
+                                strongSelf.title = ""
+                                if strongSelf.navigationItem.titleView !== view {
+                                    strongSelf.navigationItem.titleView = view
+                                }
                                 strongSelf.segmentedTitleView = nil
                                 if previousHadContentNode {
                                     strongSelf.navigationBar?.setContentNode(nil, animated: false)

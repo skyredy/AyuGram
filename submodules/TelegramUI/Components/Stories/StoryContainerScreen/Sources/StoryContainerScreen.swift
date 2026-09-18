@@ -2110,6 +2110,12 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
     public var customBackAction: (() -> Void)?
     public var performReorderAction: (() -> Void)?
     
+    // AYG: Story Ghost Mode Alert — AyuGram's `StoryViewer.disableGhostModeAfterClose`.
+    // When the alert was answered "Yes", Ghost Mode was switched on for this viewing only,
+    // and `StoryViewer.close` puts it back. The screen built right after that answer is
+    // the one that owns the revert, so it claims the token here.
+    private let aygGhostModeRevert: AYGStoryGhostModeRevert?
+    
     public init(
         context: AccountContext,
         content: StoryContentContext,
@@ -2117,6 +2123,8 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
         transitionOut: @escaping (EnginePeer.Id, AnyHashable) -> TransitionOut?
     ) {
         self.context = context
+        // AYG: see `aygGhostModeRevert`.
+        self.aygGhostModeRevert = AYGStoryGhostModeRevert.claimPending()
         
         super.init(context: context, component: StoryContainerScreenComponent(
             context: context,
@@ -2142,6 +2150,10 @@ public class StoryContainerScreen: ViewControllerComponentContainer, KeyShortcut
     deinit {
         self.context.sharedContext.hasPreloadBlockingContent.set(.single(false))
         self.focusedItemPromise.set(.single(nil))
+        // AYG: Android reverts in `close()`; here it is `deinit`, which is the one point
+        // every dismissal path — swipe out, back action, picture-in-picture, a screen
+        // built but never pushed — is guaranteed to reach exactly once.
+        self.aygGhostModeRevert?.perform()
     }
     
     override public func containerLayoutUpdated(_ layout: ContainerViewLayout, transition: ContainedViewLayoutTransition) {

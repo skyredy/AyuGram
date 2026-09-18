@@ -1514,7 +1514,13 @@ func openResolvedUrlImpl(
                                 return transitionOut
                             }
                         )
-                        navigationController?.pushViewController(storyContainerScreen)
+                        // AYG: Story Ghost Mode Alert — a t.me story link opens the viewer
+                        // for real (`readGlobally: true`), so it is gated like any other.
+                        // `completion` stays outside: it is the url handler's own teardown
+                        // and has to run whether or not the story ends up being opened.
+                        aygSuggestGhostModeBeforeStory(context: context) { [weak navigationController] in
+                            navigationController?.pushViewController(storyContainerScreen)
+                        }
                         completion?()
                     })
                 } else {

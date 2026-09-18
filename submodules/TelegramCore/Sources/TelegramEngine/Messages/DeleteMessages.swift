@@ -23,6 +23,17 @@ func addMessageMediaResourceIdsToRemove(message: Message, resourceIds: inout [Me
 }
 
 public func _internal_deleteMessages(transaction: Transaction, mediaBox: MediaBox, ids: [MessageId], deleteMedia: Bool = true, manualAddMessageThreadStatsDifference: ((MessageThreadKey, Int, Int) -> Void)? = nil) {
+    // AYG: Last line of defence for anti-delete. A message already kept must
+    // never be hard-deleted here, whatever the caller is: history validation, a
+    // second getDifference pass and UpdateMinAvailableMessage all reach the
+    // postbox without passing any of the earlier guards. Also drops cloud ids
+    // entirely when running inside an app extension while the main app is
+    // capturing — the extension cannot write the archive, so it must leave the
+    // message for the main app instead of destroying it.
+    let ids = aygFilterHardDeletableMessageIds(transaction: transaction, ids: ids)
+    if ids.isEmpty {
+        return
+    }
     var resourceIds: [MediaResourceId] = []
     if deleteMedia {
         for id in ids {
@@ -57,6 +68,9 @@ public func _internal_deleteMessages(transaction: Transaction, mediaBox: MediaBo
 }
 
 func _internal_deleteAllMessagesWithAuthor(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, authorId: PeerId, namespace: MessageId.Namespace) {
+    // AYG: "delete all from this user" goes straight through a Postbox
+    // primitive, past the guard in _internal_deleteMessages. Archive first.
+    aygArchiveAuthorMessagesBeforeRemoval(transaction: transaction, mediaBox: mediaBox, peerId: peerId, authorId: authorId, forwardAuthorId: nil, namespace: namespace)
     var resourceIds: [MediaResourceId] = []
     transaction.removeAllMessagesWithAuthor(peerId, authorId: authorId, namespace: namespace, forEachMedia: { media in
         addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
@@ -67,6 +81,9 @@ func _internal_deleteAllMessagesWithAuthor(transaction: Transaction, mediaBox: M
 }
 
 func _internal_deleteAllMessagesWithForwardAuthor(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, forwardAuthorId: PeerId, namespace: MessageId.Namespace) {
+    // AYG: same as _internal_deleteAllMessagesWithAuthor — archive before the
+    // Postbox primitive wipes the messages.
+    aygArchiveAuthorMessagesBeforeRemoval(transaction: transaction, mediaBox: mediaBox, peerId: peerId, authorId: nil, forwardAuthorId: forwardAuthorId, namespace: namespace)
     var resourceIds: [MediaResourceId] = []
     transaction.removeAllMessagesWithForwardAuthor(peerId, forwardAuthorId: forwardAuthorId, namespace: namespace, forEachMedia: { media in
         addMessageMediaResourceIdsToRemove(media: media, resourceIds: &resourceIds)
@@ -275,6 +292,9 @@ func _internal_deleteReaction(account: Account, messageId: MessageId, authorId: 
 
 func _internal_clearHistory(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, threadId: Int64?, namespaces: MessageIdNamespaces) {
     if peerId.namespace == Namespaces.Peer.SecretChat {
+        // AYG: a secret chat's history clear also bypasses the guard in
+        // _internal_deleteMessages, and its messages exist nowhere else.
+        aygArchiveSecretMessagesBeforeHistoryClear(transaction: transaction, mediaBox: mediaBox, peerId: peerId, minTimestamp: nil, maxTimestamp: nil)
         var resourceIds: [MediaResourceId] = []
         transaction.withAllMessages(peerId: peerId, { message in
             addMessageMediaResourceIdsToRemove(message: message, resourceIds: &resourceIds)
@@ -290,6 +310,8 @@ func _internal_clearHistory(transaction: Transaction, mediaBox: MediaBox, peerId
 
 func _internal_clearHistoryInRange(transaction: Transaction, mediaBox: MediaBox, peerId: PeerId, threadId: Int64?, minTimestamp: Int32, maxTimestamp: Int32, namespaces: MessageIdNamespaces) {
     if peerId.namespace == Namespaces.Peer.SecretChat {
+        // AYG: see _internal_clearHistory.
+        aygArchiveSecretMessagesBeforeHistoryClear(transaction: transaction, mediaBox: mediaBox, peerId: peerId, minTimestamp: minTimestamp, maxTimestamp: maxTimestamp)
         var resourceIds: [MediaResourceId] = []
         transaction.withAllMessages(peerId: peerId, { message in
             if message.timestamp >= minTimestamp && message.timestamp <= maxTimestamp {

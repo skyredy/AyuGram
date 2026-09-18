@@ -391,15 +391,18 @@ public extension Message {
     }
     
     func isCopyProtected() -> Bool {
-        if self.flags.contains(.CopyProtected) {
-            return true
-        } else if let group = self.peers[self.id.peerId] as? TelegramGroup, group.flags.contains(.copyProtectionEnabled) {
-            return true
-        } else if let channel = self.peers[self.id.peerId] as? TelegramChannel, channel.flags.contains(.copyProtectionEnabled) {
-            return true
-        } else {
+        // AYG: the chokepoint for the whole restricted-forwarding mechanism. Nearly
+        // every content-protection gate in the app — the Forward/Copy/Save context menu
+        // items, text selection, the download button, the share sheet, the
+        // screenshot-blocking `captureProtected` layers — is `!message.isCopyProtected()`,
+        // and all of them are *local*. Answering `false` here reopens them in one place
+        // instead of forty. The one gate that is not local is the forward RPC itself, so
+        // the honest answer stays available as `aygIsCopyProtectedIgnoringBypass()` for
+        // the send path to decide between a real forward and a re-sent copy.
+        if AYGForwardingManager.shared.ignoresCopyProtection {
             return false
         }
+        return self.aygIsCopyProtectedIgnoringBypass()
     }
     
     func isSensitiveContent(platform: String) -> Bool {

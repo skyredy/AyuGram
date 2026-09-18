@@ -295,43 +295,19 @@ filegroup(
     ], exclude = ["Telegram-iOS/Icons.xcassets/**/.*"]),
 )
 
-filegroup(
-    name = "AppIcons",
-    srcs = glob([
-        "Telegram-iOS/AppIcons.xcassets/**/*",
-    ], exclude = ["Telegram-iOS/AppIcons.xcassets/**/.*"]),
-)
+# AYG: the AppIcons / DefaultAppIcon / DefaultIcon filegroups pointed at
+# Telegram-branded asset catalogs. Both catalogs are deleted and neither
+# filegroup was referenced by any target.
 
-filegroup(
-    name = "DefaultAppIcon",
-    srcs = glob([
-        "Telegram-iOS/DefaultAppIcon.xcassets/**/*",
-    ], exclude = ["Telegram-iOS/DefaultAppIcon.xcassets/**/.*"]),
-)
-
-filegroup(
-    name = "DefaultIcon",
-    srcs = glob([
-        "Telegram-iOS/AppIcons.xcassets/BlueIcon.appiconset/*.png",
-    ]),
-)
-
+# AYG: every Telegram-branded icon is gone. The picker in Appearance offers a
+# single entry — AyuGram — and it maps back to the primary icon.
 alternate_icon_folders = [
-    "BlackIcon",
-    "BlackClassicIcon",
-    "BlackFilledIcon",
-    "BlueIcon",
-    "BlueClassicIcon",
-    "BlueFilledIcon",
-    "WhiteFilledIcon",
-    "New1",
-    "New2",
-    "Premium",
-    "PremiumBlack",
-    "PremiumTurbo",
+    "AYGIcon",
 ]
 
-composer_icon_folders = ["Telegram"]
+# AYG: primary app icon (Icon Composer bundle). Named AYGAppIcon rather than
+# AYGIcon so CFBundleIconName cannot collide with the CFBundleAlternateIcons key.
+composer_icon_folders = ["AYGAppIcon"]
 
 [
     filegroup(
@@ -355,6 +331,18 @@ filegroup(
     name = "LaunchScreen",
     srcs = glob([
         "Telegram-iOS/Base.lproj/LaunchScreen.xib",
+    ]),
+)
+
+# AYG: AyuGram's own translations, one JSON per language, compiled from the Crowdin
+# export by `build-system/AYGCompileLocales.py`. Flat resources rather than `.lproj`
+# bundles on purpose — `AppStringResources` ships empty placeholders for every
+# language but English and lets Telegram download the rest at runtime, so an
+# `.lproj` of ours would be the odd one out. `AYGStrings.swift` reads these directly.
+filegroup(
+    name = "AYGLocaleResources",
+    srcs = glob([
+        "Telegram-iOS/AYGLocales/*.json",
     ]),
 )
 
@@ -551,7 +539,13 @@ official_communication_notifications_fragment = """
 <key>com.apple.developer.usernotifications.communication</key>
 <true/>
 """
-communication_notifications_fragment = official_communication_notifications_fragment if telegram_bundle_id in official_bundle_ids else ""
+# AYG: not official-only any more. `com.apple.developer.usernotifications.communication`
+# is an ordinary capability any team can switch on in the developer portal (it is what
+# puts the sender's avatar on a notification), unlike its neighbour
+# `usernotifications.filtering`, which really does need Apple's approval. It is enabled
+# on `org.ayugram.app` **and** on `org.ayugram.app.NotificationService`, because the
+# `INSendMessageIntent` is donated from the extension, not the app.
+communication_notifications_fragment = official_communication_notifications_fragment
 
 official_notification_filtering_fragment = """
 <key>com.apple.developer.usernotifications.filtering</key>
@@ -623,6 +617,11 @@ plist_fragment(
     """
 )
 
+# AYG: user-visible app name. Every CFBundleName / CFBundleDisplayName that
+# used to read "Telegram" now reads "AyuGram" — the main app (TelegramInfoPlist)
+# and all six extensions, which is what the share sheet, the widget gallery and
+# Settings show. Framework fragments (MtProtoKit, TelegramCore, TelegramUI, ...)
+# keep their own names: those are bundle identities, not the app's name.
 plist_fragment(
     name = "AppNameInfoPlist",
     extension = "plist",
@@ -1630,17 +1629,17 @@ plist_fragment(
     <key>NSCameraUsageDescription</key>
     <string>We need this so that you can take and share photos and videos.</string>
     <key>NSContactsUsageDescription</key>
-    <string>Telegram stores your contacts heavily encrypted in the cloud to let you connect with your friends across all your devices.</string>
+    <string>AyuGram stores your contacts heavily encrypted in the cloud to let you connect with your friends across all your devices.</string>
     <key>NSFaceIDUsageDescription</key>
     <string>You can use Face ID to unlock the app.</string>
     <key>NSLocationAlwaysUsageDescription</key>
-    <string>When you send your location to your friends, Telegram needs access to show them a map. You also need this to send locations from an Apple Watch.</string>
+    <string>When you send your location to your friends, AyuGram needs access to show them a map. You also need this to send locations from an Apple Watch.</string>
     <key>NSLocationWhenInUseUsageDescription</key>
-    <string>When you send your location to your friends, Telegram needs access to show them a map.</string>
+    <string>When you send your location to your friends, AyuGram needs access to show them a map.</string>
     <key>NSMicrophoneUsageDescription</key>
     <string>We need this so that you can record and share voice messages and videos with sound.</string>
     <key>NSMotionUsageDescription</key>
-    <string>When you send your location to your friends, Telegram needs access to show them a map.</string>
+    <string>When you send your location to your friends, AyuGram needs access to show them a map.</string>
     <key>NSPhotoLibraryAddUsageDescription</key>
     <string>We need this so that you can share photos and videos from your photo library.</string>
     <key>NSPhotoLibraryUsageDescription</key>
@@ -1709,9 +1708,11 @@ plist_fragment(
             </array>
             <key>UTTypeDescription</key>
             <string>Telegram iOS Color Theme File</string>
+            <!-- AYG: BlueIcon@3x.png was deleted with the rest of the
+                 Telegram icons; point Files.app at the AyuGram icon instead. -->
             <key>UTTypeIconFiles</key>
             <array>
-                <string>BlueIcon@3x.png</string>
+                <string>AYGIcon@3x.png</string>
             </array>
             <key>UTTypeIdentifier</key>
             <string>org.telegram.Telegram-iOS.theme</string>
@@ -1760,6 +1761,11 @@ apple_prebuilt_watchos_application(
 
 ios_application(
     name = "Telegram",
+    # AYG: produces ayugram.app with an `ayugram` executable, and sets
+    # CFBundleName/CFBundleExecutable accordingly. The bazel target name is
+    # deliberately left as `Telegram` so //Telegram:Telegram and the
+    # Telegram.ipa paths in build-system/Make stay valid.
+    bundle_name = "ayugram",
     bundle_id = "{telegram_bundle_id}".format(
         telegram_bundle_id = telegram_bundle_id,
     ),
@@ -1783,7 +1789,7 @@ ios_application(
     ],
     resources = [
         ":LaunchScreen",
-        #":DefaultAppIcon",
+        ":AYGLocaleResources",
     ],
     frameworks = [
         ":MtProtoKitFramework",

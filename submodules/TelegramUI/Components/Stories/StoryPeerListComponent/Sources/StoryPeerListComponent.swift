@@ -655,16 +655,28 @@ public final class StoryPeerListComponent: Component {
             realTitleContentWidth += titleLockOffset
             
             var titleIconSize: CGSize?
-            if let peerStatus = component.titlePeerStatus {
+            // AYG: "Display Ghost Status". This is the header the chat list actually
+            // shows once there is a story tray — `ChatListTitleView` draws the title
+            // only without one — so the ghost has to be handled in both. It replaces
+            // the emoji status rather than joining it, and carries no particles, which
+            // is what `ActionBar.getVisibleTitleRightDrawable` does on Android.
+            let aygShowsGhostStatus = AYGCustomizationManager.shared.shouldDisplayGhostStatus(forAccount: component.context.account.peerId)
+            if aygShowsGhostStatus || component.titlePeerStatus != nil {
                 let statusContent: EmojiStatusComponent.Content
                 var particleColor: UIColor?
-                switch peerStatus {
-                case .premium:
-                    statusContent = .premium(color: component.theme.list.itemAccentColor)
-                case let .emoji(emoji):
-                    statusContent = .animation(content: .customEmoji(fileId: emoji.fileId), size: CGSize(width: 44.0, height: 44.0), placeholderColor: component.theme.list.mediaPlaceholderColor, themeColor: component.theme.list.itemAccentColor, loopMode: .count(2))
-                    if let color = emoji.color {
-                        particleColor = UIColor(rgb: UInt32(bitPattern: color))
+                if aygShowsGhostStatus {
+                    statusContent = .image(image: UIImage(bundleImageName: "AyuGram/AYGGhost"), tintColor: component.theme.rootController.navigationBar.primaryTextColor)
+                } else {
+                    switch component.titlePeerStatus {
+                    case .premium:
+                        statusContent = .premium(color: component.theme.list.itemAccentColor)
+                    case let .emoji(emoji):
+                        statusContent = .animation(content: .customEmoji(fileId: emoji.fileId), size: CGSize(width: 44.0, height: 44.0), placeholderColor: component.theme.list.mediaPlaceholderColor, themeColor: component.theme.list.itemAccentColor, loopMode: .count(2))
+                        if let color = emoji.color {
+                            particleColor = UIColor(rgb: UInt32(bitPattern: color))
+                        }
+                    case .none:
+                        statusContent = .none
                     }
                 }
                 

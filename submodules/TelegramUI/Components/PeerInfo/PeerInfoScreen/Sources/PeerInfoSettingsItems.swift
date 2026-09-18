@@ -12,14 +12,16 @@ import ItemListPeerItem
 import DeviceAccess
 import TelegramStringFormatting
 import PeerNameColorItem
-import SettingsUI
+import AyuGramUI
 
 enum SettingsSection: Int, CaseIterable {
     case edit
     case phone
     case accounts
+    // AYG: standalone section holding the AyuGram entry point. First of the
+    // navigational rows, directly above My Profile.
+    case ayugram
     case myProfile
-    case ayuGram
     case proxy
     case apps
     case shortcuts
@@ -152,16 +154,7 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
         items[.myProfile]!.append(PeerInfoScreenDisclosureItem(id: 0, text: presentationData.strings.Settings_MyProfile, icon: PresentationResourcesSettings.myProfile, action: {
             interaction.openSettings(.profile)
         }))
-
-        items[.ayuGram]!.append(PeerInfoScreenDisclosureItem(id: 0, text: "Настройки AyuGram", icon: PresentationResourcesSettings.ayuGramSettings, action: {
-            interaction.openSettings(.ayuGramSettings)
-        }))
-
-        items[.ayuGram]!.append(PeerInfoScreenActionItem(id: 1, text: AyuGramSettings.ghostModeEnabled ? "Выключить призрак" : "Включить призрак", icon: PresentationResourcesSettings.ayuGramGhost, action: {
-            AyuGramSettings.ghostModeEnabled = !AyuGramSettings.ghostModeEnabled
-            interaction.requestLayout(true)
-        }))
-
+        
         if !settings.proxySettings.servers.isEmpty {
             let proxyType: String
             if settings.proxySettings.enabled, let activeServer = settings.proxySettings.activeServer {
@@ -258,6 +251,11 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
     let languageName = presentationData.strings.primaryComponent.localizedName
     items[.advanced]!.append(PeerInfoScreenDisclosureItem(id: 4, label: .text(languageName.isEmpty ? presentationData.strings.Localization_LanguageName : languageName), text: presentationData.strings.Settings_AppLanguage, icon: PresentationResourcesSettings.language, action: {
         interaction.openSettings(.language)
+    }))
+    
+    // AYG: entry point into the AyuGram settings screen.
+    items[.ayugram]!.append(PeerInfoScreenDisclosureItem(id: 0, text: aygSettingsRowTitle, icon: PresentationResourcesSettings.ayugram, action: {
+        interaction.openSettings(.ayugram)
     }))
     
     let premiumConfiguration = PremiumConfiguration.with(appConfiguration: context.currentAppConfiguration.with { $0 })

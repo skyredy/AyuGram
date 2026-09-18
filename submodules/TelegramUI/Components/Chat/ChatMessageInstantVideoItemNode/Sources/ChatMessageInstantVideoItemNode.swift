@@ -651,6 +651,14 @@ public class ChatMessageInstantVideoItemNode: ChatMessageItemView, ASGestureReco
                     strongSelf.contextSourceNode.frame = CGRect(origin: CGPoint(), size: layoutSize)
                     strongSelf.containerNode.frame = CGRect(origin: CGPoint(), size: layoutSize)
                     strongSelf.contextSourceNode.contentNode.frame = CGRect(origin: CGPoint(), size: layoutSize)
+                    // AYG: "Translucent Deleted Messages" — the same treatment
+                    // `ChatMessageBubbleItemNode` applies, on the item view that draws
+                    // stickers / round videos rather than a bubble.
+                    let aygDisplayAlpha = CGFloat(AYGCustomizationManager.shared.displayAlpha(for: item.message))
+                    if strongSelf.contextSourceNode.contentNode.alpha != aygDisplayAlpha {
+                        animation.animator.updateAlpha(layer: strongSelf.contextSourceNode.contentNode.layer, alpha: aygDisplayAlpha, completion: nil)
+                        strongSelf.contextSourceNode.contentNode.alpha = aygDisplayAlpha
+                    }
                     strongSelf.messageAccessibilityArea.frame = CGRect(origin: CGPoint(), size: layoutSize)
                     
                     strongSelf.appliedParams = params

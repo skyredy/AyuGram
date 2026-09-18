@@ -419,7 +419,17 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                 self.audioTranscriptionState = .inProgress
                 self.requestUpdateLayout(true)
                 
-                if context.sharedContext.immediateExperimentalUISettings.localTranscription {
+                // AYG: `messages.transcribeAudio` is a server call, and the server marks
+                // the voice message listened when it answers — so transcribing leaks a
+                // read receipt that Ghost Mode is meant to suppress, even though merely
+                // *playing* the message does not (that path goes through
+                // `MarkMessageContentAsConsumedInteractively`, which is already hooked).
+                // Nothing client-side can stop the server from doing that, so the only
+                // fix is to not ask it: fall back to the on-device transcriber, which
+                // already exists here behind a debug flag.
+                let aygUseLocalTranscription = message.flags.contains(.Incoming)
+                    && AYGGhostModeManager.shared.shouldHideReadReceipts(forAccount: context.account.peerId, peerId: message.id.peerId.toInt64())
+                if context.sharedContext.immediateExperimentalUISettings.localTranscription || aygUseLocalTranscription {
                     let appLocale = presentationData.strings.baseLanguageCode
                     
                     let signal: Signal<LocallyTranscribedAudio?, NoError> = context.engine.data.get(TelegramEngine.EngineData.Item.Messages.Message(id: message.id))
@@ -969,7 +979,9 @@ public final class ChatMessageInteractiveFileNode: ASDisplayNode {
                         hasAutoremove: arguments.message.isSelfExpiring,
                         canViewReactionList: canViewMessageReactionList(message: EngineMessage(arguments.topMessage)),
                         animationCache: arguments.controllerInteraction.presentationContext.animationCache,
-                        animationRenderer: arguments.controllerInteraction.presentationContext.animationRenderer
+                        animationRenderer: arguments.controllerInteraction.presentationContext.animationRenderer,
+                        // AYG: draws the deleted mark left of the timestamp.
+                        aygIsDeleted: arguments.message.aygIsDeleted
                     ))
                 }
                 

@@ -2071,6 +2071,15 @@ func _internal_deleteStories(account: Account, peerId: PeerId, ids: [Int32]) -> 
 }
 
 func _internal_markStoryAsSeen(account: Account, peerId: PeerId, id: Int32, asPinned: Bool) -> Signal<Never, NoError> {
+    // AYG: Ghost Mode — "Don't Read Stories". Covers both branches: the pinned one calls
+    // `stories.incrementStoryViews` straight away, the other one writes the local max-read
+    // id and enqueues a sync operation. Bailing out here keeps the local read position
+    // untouched as well, so a story the user opened is not silently marked seen on a
+    // device that never told anyone.
+    if AYGGhostModeManager.shared.shouldHideStoryViews(forAccount: account.peerId, peerId: peerId.toInt64()) {
+        return .complete()
+    }
+
     if asPinned {
         return account.postbox.transaction { transaction -> Api.InputPeer? in
             return transaction.getPeer(peerId).flatMap(apiInputPeer)

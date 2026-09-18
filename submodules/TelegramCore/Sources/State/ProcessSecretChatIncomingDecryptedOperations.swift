@@ -295,7 +295,30 @@ func processSecretChatIncomingDecryptedOperations(encryptionProvider: Encryption
                                                 }
                                             }
                                         }
-                                        _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: filteredMessageIds)
+                                        // AYG: intercept secret-chat deletions the
+                                        // same way cloud deletions are intercepted.
+                                        // These messages exist nowhere but this
+                                        // device, so a miss here is permanent.
+                                        if AntiDeleteManager.shared.shouldCapture {
+                                            var idsToDelete: [MessageId] = []
+                                            for messageId in filteredMessageIds {
+                                                guard let message = transaction.getMessage(messageId) else {
+                                                    idsToDelete.append(messageId)
+                                                    continue
+                                                }
+                                                if AntiDeleteManager.shared.isMessageDeleted(peerId: message.id.peerId.toInt64(), messageId: message.id.id) {
+                                                    continue
+                                                }
+                                                if !aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: nil, mediaBox: mediaBox) {
+                                                    idsToDelete.append(messageId)
+                                                }
+                                            }
+                                            if !idsToDelete.isEmpty {
+                                                _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: idsToDelete)
+                                            }
+                                        } else {
+                                            _internal_deleteMessages(transaction: transaction, mediaBox: mediaBox, ids: filteredMessageIds)
+                                        }
                                     }
                                 case .clearHistory:
                                     _internal_clearHistory(transaction: transaction, mediaBox: mediaBox, peerId: peerId, threadId: nil, namespaces: .all)

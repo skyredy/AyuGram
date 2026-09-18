@@ -131,11 +131,6 @@ public struct PresentationResourcesSettings {
     public static let powerSaving = renderSettingsIcon(name: "Item List/Icons/PowerSaving", backgroundColors: [colorOrange])
     public static let business = renderSettingsIcon(name: "Item List/Icons/Business", backgroundColors: [UIColor(rgb: 0xA95CE3), UIColor(rgb: 0xF16B80)])
     public static let myProfile = renderSettingsIcon(name: "Item List/Icons/Profile", backgroundColors: [colorRed])
-    public static let ayuGramSettings = renderSettingsIcon(name: "AyuGram/Logo")
-    public static let ayuGramGhost = renderSettingsIcon(name: "Item List/Icons/AyuGhost", backgroundColors: [colorPurple])
-    public static let ayuGramSpy = renderSettingsIcon(name: "Item List/Icons/AyuSpy", backgroundColors: [colorBlue])
-    public static let ayuGramFilters = renderSettingsIcon(name: "Item List/Icons/AyuFilters", backgroundColors: [colorTeal])
-    public static let ayuGramCustomization = renderSettingsIcon(name: "Item List/Icons/AyuCustomization", backgroundColors: [colorOrange])
     
     public static let birthday = renderSettingsIcon(name: "Item List/Icons/Cake", backgroundColors: [colorBlue])
     public static let aiTools = renderSettingsIcon(name: "Item List/Icons/AITools", backgroundColors: [colorPurple])

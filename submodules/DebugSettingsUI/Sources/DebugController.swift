@@ -1573,7 +1573,7 @@ private func debugControllerEntries(context: AccountContext?, sharedContext: Sha
     entries.append(.crashOnSlowQueries(presentationData.theme, experimentalSettings.crashOnLongQueries))
     entries.append(.crashOnMemoryPressure(presentationData.theme, experimentalSettings.crashOnMemoryPressure))
     if isMainApp {
-        entries.append(.clearTips(presentationData.theme))
+    entries.append(.clearTips(presentationData.theme))
         entries.append(.resetNotifications)
     }
     entries.append(.crash(presentationData.theme))
@@ -1650,6 +1650,7 @@ private func debugControllerEntries(context: AccountContext?, sharedContext: Sha
         entries.append(.hostInfo(presentationData.theme, "Host: \(backupHostOverride)"))
     }
     entries.append(.versionInfo(presentationData.theme))
+    // AYG: last, and with the highest `stableId` — `ItemListNodeState` asserts that
     
     return entries
 }

@@ -5647,7 +5647,11 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
                         return transitionOut
                     }
                 )
-                self.push(storyContainerScreen)
+                // AYG: Story Ghost Mode Alert — a story opened from a message
+                // (`readGlobally: true`) records a view like any other.
+                aygSuggestGhostModeBeforeStory(context: self.context) { [weak self] in
+                    self?.push(storyContainerScreen)
+                }
             })
         }, attemptedNavigationToPrivateQuote: { [weak self] peer in
             guard let self else {
@@ -8983,7 +8987,19 @@ public final class ChatControllerImpl: TelegramBaseController, ChatController, G
         guard let peerId = self.chatLocation.peerId else {
             return
         }
-        
+
+        // AYG: a reply to a message the fork kept but the server deleted becomes a
+        // pseudo-reply — the quote folded into the text, the reply itself dropped. The
+        // input panel's own sends go through `chatDisplayNode.sendMessages` instead; this
+        // covers the paths that come here, such as attachments. See `AYGPseudoReply.swift`.
+        let messages = aygConvertRepliesToDeletedMessages(
+            messages,
+            chatPeerId: peerId,
+            resolveMessage: { [weak self] id in
+                return self?.chatDisplayNode.historyNode.messageInCurrentHistoryView(id)?._asMessage()
+            }
+        )
+
         let _ = (self.shouldDivertMessagesToScheduled(messages: messages)
         |> deliverOnMainQueue).startStandalone(next: { [weak self] shouldDivert in
             guard let self else {

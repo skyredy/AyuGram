@@ -97,6 +97,14 @@ public extension TelegramEngine {
         	return _internal_clearCloudDraftsInteractively(postbox: self.account.postbox, network: self.account.network, accountPeerId: self.account.peerId)
         }
 
+        // AYG: pushes a read receipt to the server explicitly, up to `index`, for the
+        // "Mark as Read" context-menu action. Separate from
+        // `applyMaxReadIndexInteractively` on purpose — that one updates local state,
+        // which Ghost Mode leaves alone; this one sends the packet Ghost Mode blocks.
+        public func aygSendExplicitReadReceipt(index: MessageIndex, threadId: Int64?) -> Signal<Never, NoError> {
+            return _internal_aygSendExplicitReadReceipt(account: self.account, index: index, threadId: threadId)
+        }
+
         public func applyMaxReadIndexInteractively(index: MessageIndex) -> Signal<Void, NoError> {
             return _internal_applyMaxReadIndexInteractively(postbox: self.account.postbox, stateManager: self.account.stateManager, index: index)
         }
@@ -256,7 +264,8 @@ public extension TelegramEngine {
         }
 
         public func markMessageContentAsConsumedInteractively(messageId: MessageId) -> Signal<Void, NoError> {
-            return _internal_markMessageContentAsConsumedInteractively(postbox: self.account.postbox, messageId: messageId)
+            // AYG: pass the account through — Ghost Mode resolves its settings per account.
+            return _internal_markMessageContentAsConsumedInteractively(postbox: self.account.postbox, accountPeerId: self.account.peerId, messageId: messageId)
         }
 
         public func installInteractiveReadMessagesAction(peerId: PeerId, threadId: Int64?) -> Disposable {

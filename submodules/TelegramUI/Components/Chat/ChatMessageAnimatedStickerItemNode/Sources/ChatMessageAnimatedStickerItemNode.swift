@@ -1185,7 +1185,9 @@ public class ChatMessageAnimatedStickerItemNode: ChatMessageItemView {
                 hasAutoremove: item.message.isSelfExpiring,
                 canViewReactionList: canViewMessageReactionList(message: EngineMessage(item.message)),
                 animationCache: item.controllerInteraction.presentationContext.animationCache,
-                animationRenderer: item.controllerInteraction.presentationContext.animationRenderer
+                animationRenderer: item.controllerInteraction.presentationContext.animationRenderer,
+                // AYG: draws the deleted mark left of the timestamp.
+                aygIsDeleted: item.message.aygIsDeleted
             ))
             
             let (dateAndStatusSize, dateAndStatusApply) = statusSuggestedWidthAndContinue.1(statusSuggestedWidthAndContinue.0)
@@ -1558,6 +1560,14 @@ public class ChatMessageAnimatedStickerItemNode: ChatMessageItemView {
                     strongSelf.containerNode.frame = CGRect(origin: CGPoint(), size: layoutSize)
                     strongSelf.contextSourceNode.frame = CGRect(origin: CGPoint(), size: layoutSize)
                     strongSelf.contextSourceNode.contentNode.frame = CGRect(origin: CGPoint(), size: layoutSize)
+                    // AYG: "Translucent Deleted Messages" — the same treatment
+                    // `ChatMessageBubbleItemNode` applies, on the item view that draws
+                    // stickers / round videos rather than a bubble.
+                    let aygDisplayAlpha = CGFloat(AYGCustomizationManager.shared.displayAlpha(for: item.message))
+                    if strongSelf.contextSourceNode.contentNode.alpha != aygDisplayAlpha {
+                        animation.animator.updateAlpha(layer: strongSelf.contextSourceNode.contentNode.layer, alpha: aygDisplayAlpha, completion: nil)
+                        strongSelf.contextSourceNode.contentNode.alpha = aygDisplayAlpha
+                    }
                     
                     var transition: ContainedViewLayoutTransition = .immediate
                     if case let .System(duration, _) = animation {

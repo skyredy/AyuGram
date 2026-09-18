@@ -218,6 +218,9 @@ private var declaredEncodables: Void = {
     declareEncodable(TelegramExtendedMedia.self, f: { TelegramExtendedMedia(decoder: $0) })
     declareEncodable(TelegramPeerUsername.self, f: { TelegramPeerUsername(decoder: $0) })
     declareEncodable(MediaSpoilerMessageAttribute.self, f: { MediaSpoilerMessageAttribute(decoder: $0) })
+    // AYG: the copy-forward's re-upload marker is stored on the pending outgoing message,
+    // so Postbox has to be able to decode it back or the message fails to load.
+    declareEncodable(ForceDirectMediaUploadMessageAttribute.self, f: { ForceDirectMediaUploadMessageAttribute(decoder: $0) })
     declareEncodable(AuthSessionInfoAttribute.self, f: { AuthSessionInfoAttribute(decoder: $0) })
     declareEncodable(TranslationMessageAttribute.self, f: { TranslationMessageAttribute(decoder: $0) })
     declareEncodable(TranslationMessageAttribute.Additional.self, f: { TranslationMessageAttribute.Additional(decoder: $0) })
@@ -248,6 +251,10 @@ private var declaredEncodables: Void = {
     declareEncodable(ScheduledRepeatAttribute.self, f: { ScheduledRepeatAttribute(decoder: $0) })
     declareEncodable(SummarizationMessageAttribute.self, f: { SummarizationMessageAttribute(decoder: $0) })
     declareEncodable(GuestChatMessageAttribute.self, f: { GuestChatMessageAttribute(decoder: $0) })
+    // AYG: Anti-delete's marker attribute. Postbox can only decode an attribute
+    // it has been told about; without this, every message kept by anti-delete
+    // loses its "deleted" mark on the next launch.
+    declareEncodable(DeletedMessageAttribute.self, f: { DeletedMessageAttribute(decoder: $0) })
     return
 }()
 

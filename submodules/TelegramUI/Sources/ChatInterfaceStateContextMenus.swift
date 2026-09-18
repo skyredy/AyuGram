@@ -9,6 +9,7 @@ import MobileCoreServices
 import TelegramVoip
 import OverlayStatusController
 import AccountContext
+import AyuGramUI
 import ContextUI
 import LegacyUI
 import AppBundle
@@ -1225,7 +1226,29 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
                 })
             })))
         }
-        
+
+        // AYG: "Mark as Read". Ghost Mode suppresses read receipts, so there has to be a
+        // way to send one deliberately. Shown only for an incoming message in a peer whose
+        // receipts are currently hidden, and only while the server has not been told yet —
+        // the local read state is already ahead, so it cannot be used to decide this.
+        if messages.count == 1, messages[0].flags.contains(.Incoming),
+           AYGGhostModeManager.shared.shouldHideReadReceipts(forAccount: context.account.peerId, peerId: messages[0].id.peerId.toInt64()),
+           !AYGGhostModeManager.shared.isMessageReadOnServer(peerId: messages[0].id.peerId.toInt64(), messageId: messages[0].id.id) {
+            let aygReadThreadId: Int64?
+            if case let .replyThread(replyThreadMessage) = chatPresentationInterfaceState.chatLocation {
+                aygReadThreadId = replyThreadMessage.threadId
+            } else {
+                aygReadThreadId = nil
+            }
+            let aygReadIndex = messages[0].index
+            actions.append(.action(ContextMenuActionItem(text: aygMarkAsReadMenuText, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Read"), color: theme.actionSheet.primaryTextColor)
+            }, action: { c, _ in
+                let _ = context.engine.messages.aygSendExplicitReadReceipt(index: aygReadIndex, threadId: aygReadThreadId).startStandalone()
+                c?.dismiss(result: .dismissWithoutContent, completion: {})
+            })))
+        }
+
         if data.messageActions.options.contains(.sendScheduledNow) {
             actions.append(.action(ContextMenuActionItem(text: chatPresentationInterfaceState.strings.ScheduledMessages_SendNow, icon: { theme in
                 return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Resend"), color: theme.actionSheet.primaryTextColor)
@@ -2097,6 +2120,44 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             actions.append(.action(ContextMenuActionItem(text: "Only you see this message. It will disappear after you log in again.", textLayout: .multiline, textFont: .small, icon: { _ in
                 return nil
             }, action: noAction)))
+        }
+
+        // AYG: "Burn" — AyuGram's `ExpireMediaContextMenuText`. View-once media we are
+        // holding on to is media the *server* has already burned, so spending the view
+        // by hand is a local delete: it leaves exactly the state vanilla Telegram would
+        // have been in.
+        if messages.count == 1, aygKeepsViewOnceMedia(messages[0]) {
+            if !actions.isEmpty {
+                actions.append(.separator)
+            }
+            let aygBurnMessageId = messages[0].id
+            actions.append(.action(ContextMenuActionItem(text: aygBurnViewOnceMenuText, textColor: .destructive, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Delete"), color: theme.actionSheet.destructiveActionTextColor)
+            }, action: { _, f in
+                f(.dismissWithoutContent)
+                let _ = context.engine.messages.deleteMessagesInteractively(messageIds: [aygBurnMessageId], type: .forLocalPeer).startStandalone()
+            })))
+        }
+
+        // AYG: "History" — AyuGram's `EditsHistoryMenuText`, shown only for a single
+        // message that actually has archived pre-edit versions. Android puts it in the
+        // same context menu and opens `AyuMessageHistory`.
+        if messages.count == 1, EditHistoryManager.shared.hasEditHistory(peerId: message.id.peerId.toInt64(), messageId: message.id.id) {
+            if !actions.isEmpty {
+                actions.append(.separator)
+            }
+            let aygIsOutgoing = !message.flags.contains(.Incoming)
+            actions.append(.action(ContextMenuActionItem(text: aygEditsHistoryMenuText, icon: { theme in
+                return generateTintedImage(image: UIImage(bundleImageName: "Chat/Context Menu/Edit"), color: theme.actionSheet.primaryTextColor)
+            }, action: { _, f in
+                f(.dismissWithoutContent)
+                controllerInteraction.navigationController()?.pushViewController(aygMessageHistoryController(
+                    context: context,
+                    peerId: message.id.peerId,
+                    messageId: message.id.id,
+                    isOutgoing: aygIsOutgoing
+                ))
+            })))
         }
 
         if !isPinnedMessages, !isReplyThreadHead, data.canSelect {

@@ -1270,7 +1270,9 @@ final class StoryItemSetContainerSendMessage: @unchecked(Sendable) {
             return
         }
 
-        if focusedItem.storyItem.isForwardingDisabled {
+        // AYG: the share sheet falls back to a link-only action sheet for a protected
+        // story; with the bypass on it opens the full share sheet like any other story.
+        if focusedItem.storyItem.aygIsForwardingDisabled {
             let presentationData = component.context.sharedContext.currentPresentationData.with({ $0 }).withUpdated(theme: component.theme)
             let actionSheet = ActionSheetController(presentationData: presentationData)
 

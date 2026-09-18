@@ -151,10 +151,38 @@ func deleteMessagesInteractively(transaction: Transaction, stateManager: Account
             }
         }
     }
-    _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: messageIds.map(\.messageId))
-    
-    stateManager?.notifyDeletedMessages(messageIds: messageIds.map(\.messageId))
-    
+    // AYG: "Keep my messages locally when deleting for everyone". The request to
+    // the server has already been queued above, so the message really is gone
+    // for the other side; we simply do not remove our own copy, and mark it
+    // deleted so it renders as such.
+    var idsToKeepLocally: [MessageId] = []
+    if AntiDeleteManager.shared.keepLocallyWhenDeletingForEveryone && type == .forEveryone {
+        for messageAndThreadId in messageIds {
+            let messageId = messageAndThreadId.messageId
+            guard messageId.namespace != Namespaces.Message.Local && messageId.namespace != Namespaces.Message.ScheduledLocal && messageId.namespace != Namespaces.Message.QuickReplyLocal else {
+                continue
+            }
+            guard let message = transaction.getMessage(messageId) else {
+                continue
+            }
+            guard aygArchiveDeletedMessage(transaction: transaction, message: message, globalId: nil, mediaBox: postbox.mediaBox) else {
+                continue
+            }
+            idsToKeepLocally.append(messageId)
+        }
+    }
+    let idsToDeleteLocally = messageIds.map(\.messageId).filter { !idsToKeepLocally.contains($0) }
+
+    if !idsToDeleteLocally.isEmpty {
+        // AYG: the user is deleting these on purpose, so release anti-delete's
+        // hold first — otherwise the guard in `_internal_deleteMessages` refuses,
+        // and a kept message could never be removed from the chat.
+        aygForgetKeptMessages(transaction: transaction, ids: idsToDeleteLocally)
+        _internal_deleteMessages(transaction: transaction, mediaBox: postbox.mediaBox, ids: idsToDeleteLocally)
+
+        stateManager?.notifyDeletedMessages(messageIds: idsToDeleteLocally)
+    }
+
     if !uniqueIds.isEmpty && removeIfPossiblyDelivered {
         stateManager?.removePossiblyDeliveredMessages(uniqueIds: uniqueIds)
     }

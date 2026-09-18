@@ -922,7 +922,18 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
             
             var nativeSize: CGSize
             
-            let isSecretMedia = message.containsSecretMedia
+            // AYG: keep view-once media. Flipping `isSecretMedia` off is the whole
+            // display half of the feature — the bubble stops clamping itself to 200pt,
+            // stops loading the blurred `chatSecretPhoto` variant and stops drawing the
+            // dust overlay, so a view-once photo looks like any other photo. This is
+            // AyuGram's `MessageObject.needDrawBluredPreview()` override.
+            //
+            // Only this local is flipped, never `message.containsSecretMedia` itself:
+            // the message really is still one-time media, and lying about it globally
+            // would also turn off capture protection, re-enable forwarding and change
+            // the media reference the resource is fetched with.
+            let aygKeepsViewOnce = aygKeepsViewOnceMedia(message)
+            let isSecretMedia = message.containsSecretMedia && !aygKeepsViewOnce
             var secretBeginTimeAndTimeout: (Double, Double)?
             if isSecretMedia {
                 if let attribute = message.autoclearAttribute {
@@ -1133,7 +1144,9 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
                     hasAutoremove: message.isSelfExpiring,
                     canViewReactionList: canViewMessageReactionList(message: EngineMessage(message)),
                     animationCache: presentationContext.animationCache,
-                    animationRenderer: presentationContext.animationRenderer
+                    animationRenderer: presentationContext.animationRenderer,
+                    // AYG: draws the deleted mark left of the timestamp.
+                    aygIsDeleted: message.aygIsDeleted
                 ))
                 
                 let (size, apply) = statusSuggestedWidthAndContinue.1(statusSuggestedWidthAndContinue.0)
@@ -2563,7 +2576,10 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
         }*/
         
         var secretBeginTimeAndTimeout: (Double?, Double)?
-        let isSecretMedia = message.containsSecretMedia
+        // AYG: keep view-once media — see `asyncLayout`. The badge block further down
+        // needs `aygKeepsViewOnce` too, so the "one view" marker survives the flip.
+        let aygKeepsViewOnce = aygKeepsViewOnceMedia(message)
+        let isSecretMedia = message.containsSecretMedia && !aygKeepsViewOnce
         if isSecretMedia {
             if let attribute = message.autoclearAttribute {
                 if let countdownBeginTime = attribute.countdownBeginTime {
@@ -2945,7 +2961,11 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
         }
         
 
-        if isSecretMedia {
+        // AYG: keep view-once media. The message stopped counting as secret media above,
+        // but it still *is* one-time media and this badge is how the user knows that —
+        // so the badge block is entered on either condition. Kept media never has a
+        // running countdown, so it only ever reaches the `viewOnceTimeout` branch below.
+        if isSecretMedia || aygKeepsViewOnce {
             let remainingTime: Int32?
             if let (maybeBeginTime, timeout) = secretBeginTimeAndTimeout, Int32(timeout) != viewOnceTimeout {
                 if let beginTime = maybeBeginTime {
@@ -2966,7 +2986,14 @@ public final class ChatMessageInteractiveMediaNode: ASDisplayNode, GalleryItemTr
                         
             if let remainingTime {
                 if remainingTime == viewOnceTimeout {
-                    badgeContent = .text(inset: 10.0, backgroundColor: messageTheme.mediaDateAndStatusFillColor, foregroundColor: messageTheme.mediaDateAndStatusTextColor, text: NSAttributedString(string: "1"), iconName: "Chat/Message/SecretMediaOnce")
+                    // AYG: the two states AyuGram draws in `AyuMessageUtils.formatTTL` —
+                    // its `OneViewTTL` badge while the single view is still unspent, and
+                    // a distinct marker once it has been used (Android swaps in a burnt
+                    // icon; there is no such asset here, so the numeral becomes a word).
+                    // Only ever "kept" on an incoming message: the revealed record is
+                    // written by the consume path, which ignores outgoing ones.
+                    let aygBadgeText = (aygKeepsViewOnce && aygWasViewOnceMediaRevealed(message)) ? "kept" : "1"
+                    badgeContent = .text(inset: 10.0, backgroundColor: messageTheme.mediaDateAndStatusFillColor, foregroundColor: messageTheme.mediaDateAndStatusTextColor, text: NSAttributedString(string: aygBadgeText), iconName: "Chat/Message/SecretMediaOnce")
                 } else {
                     badgeContent = .text(inset: 10.0, backgroundColor: messageTheme.mediaDateAndStatusFillColor, foregroundColor: messageTheme.mediaDateAndStatusTextColor, text: NSAttributedString(string: strings.MessageTimer_ShortSeconds(Int32(remainingTime))), iconName: "Chat/Message/SecretMediaPlay")
                 }

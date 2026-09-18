@@ -955,7 +955,14 @@ extension ChatControllerImpl {
                             }
                         }
                         if let cachedUserData = peerView.cachedData as? CachedUserData {
-                            copyProtectionEnabled = cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled)
+                            // AYG: the private-chat half of the chokepoint — see
+                            // `ChatHistoryListNode`. This feeds
+                            // `chatPresentationInterfaceState.copyProtectionEnabled`, which is
+                            // what gates the Forward / Copy / Save context-menu items and the
+                            // screenshot blocking; all local. `myCopyProtectionEnabled` below
+                            // is left truthful on purpose: the forward path needs it to know a
+                            // real forward would be refused.
+                            copyProtectionEnabled = cachedUserData.aygIsCopyProtectionEnabled
                             myCopyProtectionEnabled = cachedUserData.flags.contains(.myCopyProtectionEnabled)
                         } else {
                             copyProtectionEnabled = peer.isCopyProtectionEnabled

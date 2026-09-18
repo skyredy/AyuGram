@@ -85,7 +85,9 @@ private final class DownloadedMediaStoreContext {
                     let peerTypeValue: MediaAutoSaveSettings.PeerType
                     switch peer {
                     case .user:
-                        if let cachedUserData = cachedData as? CachedUserData, cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled) {
+                        // AYG: auto-saving incoming media to the photo library is refused
+                        // for a chat with content protection. Local decision, no RPC.
+                        if let cachedUserData = cachedData as? CachedUserData, cachedUserData.aygIsCopyProtectionEnabled {
                             return false
                         }
                         peerTypeValue = .users
@@ -94,7 +96,9 @@ private final class DownloadedMediaStoreContext {
                     case .legacyGroup:
                         peerTypeValue = .groups
                     case let .channel(channel):
-                        if channel.flags.contains(.copyProtectionEnabled) {
+                        // AYG: same gate for a channel/supergroup. Reads `flags` directly
+                        // rather than `isCopyProtectionEnabled`, so the chokepoint misses it.
+                        if channel.flags.contains(.copyProtectionEnabled) && !AYGForwardingManager.shared.ignoresCopyProtection {
                             return false
                         }
                         

@@ -11,6 +11,7 @@ import Lottie
 import TelegramUIPreferences
 import TelegramPresentationData
 import AccountContext
+import AyuGramUI
 import ShareController
 import GalleryUI
 import InstantPageUI
@@ -126,7 +127,15 @@ func openChatMessageImpl(_ params: OpenChatMessageParams) -> Bool {
                     return transitionOut
                 }
             )
-            navigationController?.pushViewController(storyContainerScreen)
+            // AYG: Story Ghost Mode Alert. `hiddenMediaSource` is already in place by now —
+            // it hides the message's thumbnail for the duration of the transition — so
+            // dismissing the alert has to take it back out again, exactly as the
+            // transition-out does.
+            aygSuggestGhostModeBeforeStory(context: context, cancelled: {
+                context.sharedContext.mediaManager.galleryHiddenMediaManager.removeSource(hiddenMediaSource)
+            }, open: { [weak navigationController] in
+                navigationController?.pushViewController(storyContainerScreen)
+            })
         })
         return true
     }
@@ -370,7 +379,19 @@ func openChatMessageImpl(_ params: OpenChatMessageParams) -> Bool {
                 })
             case let .gallery(gallery):
                 params.dismissInput()
-            
+
+                // AYG: keep view-once media. The kept photo now routes here instead of to
+                // `SecretMediaPreviewController`, and that controller was the only caller
+                // that ever marked one-time media consumed — so make the identical call.
+                // Whatever upstream reported to the server on opening a view-once photo,
+                // this reports too; deciding to go quiet on the sender is Ghost Mode's
+                // call, not this feature's, and AyuGram marks it read as well. The local
+                // copy is unaffected: the consume hook in TelegramCore declines to start
+                // the countdown for media we keep.
+                if aygKeepsViewOnceMedia(params.message) {
+                    let _ = params.context.engine.messages.markMessageContentAsConsumedInteractively(messageId: params.message.id).startStandalone()
+                }
+
                 if GalleryController.maybeExpandPIP(context: params.context, messageId: params.message.id) {
                     return true
                 }

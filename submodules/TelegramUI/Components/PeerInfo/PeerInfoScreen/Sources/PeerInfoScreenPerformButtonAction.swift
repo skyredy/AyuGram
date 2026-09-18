@@ -1265,6 +1265,12 @@ extension PeerInfoScreenNode {
                     }
                 }
                 
+                // AYG: the AyuGram row and the four-entry submenu behind it — see
+                // AYGPeerInfoMoreMenu.swift. Added here, at the one point every peer
+                // type funnels through, so the three branches above stay untouched;
+                // the helper works out where in the list it belongs.
+                strongSelf.aygInsertAyuGramMenuItem(into: &items, chatPeer: chatPeer)
+                
                 return .single(items)
             }
             

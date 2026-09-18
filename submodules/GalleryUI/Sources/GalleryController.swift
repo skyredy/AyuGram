@@ -851,7 +851,11 @@ public class GalleryController: ViewController, StandalonePresentableController,
                     if let peer = message.peers[message.id.peerId] as? TelegramGroup, let migrationPeerId = peer.migrationReference?.peerId, let migrationPeer = transaction.getPeer(migrationPeerId) {
                         return (message, migrationPeer.isCopyProtectionEnabled)
                     } else if let peer = message.peers[message.id.peerId] as? TelegramUser, let cachedUserData = transaction.getPeerCachedData(peerId: peer.id) as? CachedUserData {
-                        return (message, cachedUserData.flags.contains(.copyProtectionEnabled) || cachedUserData.flags.contains(.myCopyProtectionEnabled))
+                        // AYG: private-chat Restricted Saving, which the
+                        // `Peer.isCopyProtectionEnabled` chokepoint cannot see. Drives
+                        // `peerIsCopyProtected`, i.e. the gallery's Save/Share buttons and
+                        // its `captureProtected` layers. All local.
+                        return (message, cachedUserData.aygIsCopyProtectionEnabled)
                     }
                     return (message, false)
                 }

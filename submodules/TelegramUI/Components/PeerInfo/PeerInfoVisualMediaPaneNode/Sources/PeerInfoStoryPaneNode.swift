@@ -2022,7 +2022,12 @@ public final class PeerInfoStoryPaneNode: ASDisplayNode, PeerInfoPaneNode, ASScr
                     self.updateHiddenItems()
                 })
                 
-                navigationController.pushViewController(storyContainerScreen)
+                // AYG: Story Ghost Mode Alert. `PeerStoryListContentContextImpl` marks
+                // every story it shows as seen, so the profile's story grid needs the same
+                // gate as the tray.
+                aygSuggestGhostModeBeforeStory(context: self.context) { [weak navigationController] in
+                    navigationController?.pushViewController(storyContainerScreen)
+                }
             })
         }
 

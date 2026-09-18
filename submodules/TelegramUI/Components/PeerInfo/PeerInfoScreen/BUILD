@@ -12,6 +12,7 @@ swift_library(
     deps = [
         "//submodules/AccountContext",
         "//submodules/AccountUtils",
+        "//submodules/AyuGramUI",
         "//submodules/ActionSheetPeerItem",
         "//submodules/ActivityIndicator",
         "//submodules/TelegramUI/Components/AnimationCache",

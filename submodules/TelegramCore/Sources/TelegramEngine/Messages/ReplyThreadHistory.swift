@@ -476,6 +476,16 @@ private class ReplyThreadHistoryContextImpl {
                 }
             }
 
+            // AYG: Ghost Mode — "Don't Read Messages" inside forum topics and monoforums.
+            // These read out through `readDiscussion` / `readSavedHistory` rather than
+            // through the peer read state, so `pushPeerReadState` never sees them. The
+            // local unread count above is still updated; only the request is withheld.
+            let aygThreadPeerId = messageIndex.id.peerId.toInt64()
+            if !AYGGhostModeManager.shared.hasReadSyncAllowance(for: aygThreadPeerId),
+               AYGGhostModeManager.shared.shouldHideReadReceipts(forAccount: strongSelf.account.peerId, peerId: aygThreadPeerId) {
+                return
+            }
+
             if let subPeerId {
                 let signal = strongSelf.account.network.request(Api.functions.messages.readSavedHistory(parentPeer: inputPeer, peer: subPeerId, maxId: messageIndex.id.id))
                 |> `catch` { _ -> Signal<Api.Bool, NoError> in

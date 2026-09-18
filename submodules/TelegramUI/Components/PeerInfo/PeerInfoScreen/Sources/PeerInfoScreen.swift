@@ -188,7 +188,8 @@ enum PeerInfoSettingsSection {
     case premiumManagement
     case stars
     case ton
-    case ayuGramSettings
+    // AYG: root screen of the AyuGram section in Settings.
+    case ayugram
 }
 
 enum PeerInfoReportType {
@@ -4514,7 +4515,14 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                         }
                     }
                 )
-                self.controller?.push(storyContainerScreen)
+                // AYG: Story Ghost Mode Alert. Only this branch is gated — the avatar-node
+                // branch above hands off to `openPeerStories`, which asks for itself.
+                // `cancelled` puts back the source view this path has already hidden.
+                aygSuggestGhostModeBeforeStory(context: self.context, cancelled: { [weak sourceView] in
+                    sourceView?.isHidden = false
+                }, open: { [weak self] in
+                    self?.controller?.push(storyContainerScreen)
+                })
             })
         }
     }
