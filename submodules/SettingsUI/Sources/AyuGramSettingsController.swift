@@ -8,19 +8,36 @@ import AccountContext
 import TelegramPresentationData
 import PresentationDataUtils
 
-private final class AyuGramFeatureRow {
+private enum AyuGramRowAccessory {
+    case disclosure
+    case value(String)
+}
+
+private final class AyuGramRow {
     let title: String
     let icon: UIImage?
+    let accessory: AyuGramRowAccessory
     let action: () -> Void
 
-    init(title: String, icon: UIImage?, action: @escaping () -> Void) {
+    init(title: String, icon: UIImage?, accessory: AyuGramRowAccessory, action: @escaping () -> Void) {
         self.title = title
         self.icon = icon
+        self.accessory = accessory
         self.action = action
     }
 }
 
-private final class AyuGramFeaturesHeaderView: UIView {
+private final class AyuGramSection {
+    let header: String?
+    let rows: [AyuGramRow]
+
+    init(header: String?, rows: [AyuGramRow]) {
+        self.header = header
+        self.rows = rows
+    }
+}
+
+private final class AyuGramHeaderView: UIView {
     let logoView: UIImageView
     let titleLabel: UILabel
     let versionLabel: UILabel
@@ -33,15 +50,13 @@ private final class AyuGramFeaturesHeaderView: UIView {
         super.init(frame: frame)
 
         self.logoView.contentMode = .scaleAspectFit
-        self.logoView.layer.cornerRadius = 22.0
-        self.logoView.layer.masksToBounds = true
         self.logoView.translatesAutoresizingMaskIntoConstraints = false
 
-        self.titleLabel.font = .systemFont(ofSize: 22.0, weight: .bold)
+        self.titleLabel.font = .systemFont(ofSize: 24.0, weight: .bold)
         self.titleLabel.textAlignment = .center
         self.titleLabel.translatesAutoresizingMaskIntoConstraints = false
 
-        self.versionLabel.font = .systemFont(ofSize: 13.0, weight: .regular)
+        self.versionLabel.font = .systemFont(ofSize: 14.0, weight: .regular)
         self.versionLabel.textAlignment = .center
         self.versionLabel.translatesAutoresizingMaskIntoConstraints = false
 
@@ -50,19 +65,18 @@ private final class AyuGramFeaturesHeaderView: UIView {
         self.addSubview(self.versionLabel)
 
         NSLayoutConstraint.activate([
-            self.logoView.topAnchor.constraint(equalTo: self.topAnchor, constant: 24.0),
+            self.logoView.topAnchor.constraint(equalTo: self.topAnchor, constant: 28.0),
             self.logoView.centerXAnchor.constraint(equalTo: self.centerXAnchor),
             self.logoView.widthAnchor.constraint(equalToConstant: 96.0),
             self.logoView.heightAnchor.constraint(equalToConstant: 96.0),
 
-            self.titleLabel.topAnchor.constraint(equalTo: self.logoView.bottomAnchor, constant: 14.0),
+            self.titleLabel.topAnchor.constraint(equalTo: self.logoView.bottomAnchor, constant: 16.0),
             self.titleLabel.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: 20.0),
             self.titleLabel.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -20.0),
 
             self.versionLabel.topAnchor.constraint(equalTo: self.titleLabel.bottomAnchor, constant: 4.0),
             self.versionLabel.leadingAnchor.constraint(equalTo: self.leadingAnchor, constant: 20.0),
-            self.versionLabel.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -20.0),
-            self.versionLabel.bottomAnchor.constraint(equalTo: self.bottomAnchor, constant: -20.0)
+            self.versionLabel.trailingAnchor.constraint(equalTo: self.trailingAnchor, constant: -20.0)
         ])
     }
 
@@ -71,51 +85,76 @@ private final class AyuGramFeaturesHeaderView: UIView {
     }
 }
 
-private final class AyuGramFeaturesTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegate {
-    let rows: [AyuGramFeatureRow]
+private final class AyuGramTableDataSource: NSObject, UITableViewDataSource, UITableViewDelegate {
+    let sections: [AyuGramSection]
+    let theme: PresentationTheme
 
-    init(rows: [AyuGramFeatureRow]) {
-        self.rows = rows
+    init(sections: [AyuGramSection], theme: PresentationTheme) {
+        self.sections = sections
+        self.theme = theme
     }
 
     func numberOfSections(in tableView: UITableView) -> Int {
-        return 1
+        return self.sections.count
     }
 
     func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return self.rows.count
+        return self.sections[section].rows.count
     }
 
     func tableView(_ tableView: UITableView, titleForHeaderInSection section: Int) -> String? {
-        return "CATEGORIES"
+        return self.sections[section].header
+    }
+
+    func tableView(_ tableView: UITableView, willDisplayHeaderView view: UIView, forSection section: Int) {
+        if let headerView = view as? UITableViewHeaderFooterView {
+            headerView.textLabel?.textColor = self.theme.list.sectionHeaderTextColor
+        }
     }
 
     func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "AyuGramFeatureRow") ?? UITableViewCell(style: .default, reuseIdentifier: "AyuGramFeatureRow")
-        let row = self.rows[indexPath.row]
+        let row = self.sections[indexPath.section].rows[indexPath.row]
+        let cell = tableView.dequeueReusableCell(withIdentifier: "AyuGramRow") ?? UITableViewCell(style: .value1, reuseIdentifier: "AyuGramRow")
+
         cell.textLabel?.text = row.title
+        cell.textLabel?.textColor = self.theme.list.itemPrimaryTextColor
         cell.imageView?.image = row.icon
-        cell.accessoryType = .disclosureIndicator
+        cell.backgroundColor = self.theme.list.itemBlocksBackgroundColor
+
+        let selectedBackground = UIView()
+        selectedBackground.backgroundColor = self.theme.list.itemHighlightedBackgroundColor
+        cell.selectedBackgroundView = selectedBackground
+
+        switch row.accessory {
+        case .disclosure:
+            cell.detailTextLabel?.text = nil
+            cell.accessoryType = .disclosureIndicator
+        case let .value(value):
+            cell.detailTextLabel?.text = value
+            cell.detailTextLabel?.textColor = self.theme.list.itemAccentColor
+            cell.accessoryType = .none
+        }
+
         return cell
     }
 
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
         tableView.deselectRow(at: indexPath, animated: true)
-        self.rows[indexPath.row].action()
+        self.sections[indexPath.section].rows[indexPath.row].action()
     }
 }
 
-private final class AyuGramFeaturesControllerNode: ASDisplayNode {
+private final class AyuGramSettingsControllerNode: ASDisplayNode {
     let tableView: UITableView
     private let tableNode: ASDisplayNode
-    private let headerView: AyuGramFeaturesHeaderView
-    private let dataSource: AyuGramFeaturesTableDataSource
+    private let headerView: AyuGramHeaderView
+    private let dataSource: AyuGramTableDataSource
 
-    init(theme: PresentationTheme, logo: UIImage?, rows: [AyuGramFeatureRow]) {
+    init(theme: PresentationTheme, sections: [AyuGramSection]) {
         let tableView = UITableView(frame: .zero, style: .insetGrouped)
         self.tableView = tableView
-        self.dataSource = AyuGramFeaturesTableDataSource(rows: rows)
-        self.headerView = AyuGramFeaturesHeaderView(frame: CGRect(x: 0.0, y: 0.0, width: 320.0, height: 210.0))
+        self.dataSource = AyuGramTableDataSource(sections: sections, theme: theme)
+        self.headerView = AyuGramHeaderView(frame: CGRect(x: 0.0, y: 0.0, width: 320.0, height: 220.0))
 
         self.tableNode = ASDisplayNode(viewBlock: {
             return tableView
@@ -123,15 +162,15 @@ private final class AyuGramFeaturesControllerNode: ASDisplayNode {
 
         super.init()
 
-        self.backgroundColor = theme.list.plainBackgroundColor
+        self.backgroundColor = theme.list.blocksBackgroundColor
         self.addSubnode(self.tableNode)
 
         self.tableView.dataSource = self.dataSource
         self.tableView.delegate = self.dataSource
-        self.tableView.backgroundColor = theme.list.plainBackgroundColor
-        self.tableView.separatorColor = theme.list.itemPlainSeparatorColor
+        self.tableView.backgroundColor = theme.list.blocksBackgroundColor
+        self.tableView.separatorColor = theme.list.itemBlocksSeparatorColor
 
-        self.headerView.logoView.image = logo
+        self.headerView.logoView.image = UIImage(bundleImageName: "AyuGram/LogoLarge")
         self.headerView.titleLabel.text = "AyuGram"
         self.headerView.titleLabel.textColor = theme.list.itemPrimaryTextColor
         self.headerView.versionLabel.textColor = theme.list.itemSecondaryTextColor
@@ -149,7 +188,7 @@ private final class AyuGramFeaturesControllerNode: ASDisplayNode {
         self.tableView.contentInset = UIEdgeInsets(top: navigationBarHeight, left: 0.0, bottom: layout.intrinsicInsets.bottom, right: 0.0)
         self.tableView.scrollIndicatorInsets = self.tableView.contentInset
 
-        self.headerView.frame = CGRect(x: 0.0, y: 0.0, width: layout.size.width, height: 210.0)
+        self.headerView.frame = CGRect(x: 0.0, y: 0.0, width: layout.size.width, height: 220.0)
         self.tableView.tableHeaderView = self.headerView
     }
 }
@@ -158,8 +197,8 @@ public final class AyuGramSettingsController: ViewController {
     private let context: AccountContext
     private var presentationData: PresentationData
 
-    private var controllerNode: AyuGramFeaturesControllerNode {
-        return self.displayNode as! AyuGramFeaturesControllerNode
+    private var controllerNode: AyuGramSettingsControllerNode {
+        return self.displayNode as! AyuGramSettingsControllerNode
     }
 
     public init(context: AccountContext) {
@@ -180,35 +219,51 @@ public final class AyuGramSettingsController: ViewController {
         (self.navigationController as? NavigationController)?.pushViewController(controller)
     }
 
+    private func openLink(_ url: String) {
+        self.context.sharedContext.applicationBindings.openUrl(url)
+    }
+
     public override func loadDisplayNode() {
-        let rows: [AyuGramFeatureRow] = [
-            AyuGramFeatureRow(title: "Ghost Mode", icon: PresentationResourcesSettings.ayuGramGhost, action: { [weak self] in
+        let categories = AyuGramSection(header: "CATEGORIES", rows: [
+            AyuGramRow(title: "Ghost Mode", icon: PresentationResourcesSettings.ayuGramGhost, accessory: .disclosure, action: { [weak self] in
                 guard let self else {
                     return
                 }
                 self.pushController(ayuGramGhostModeController(context: self.context))
             }),
-            AyuGramFeatureRow(title: "Spy", icon: UIImage(systemName: "eye.fill"), action: { [weak self] in
+            AyuGramRow(title: "Spy", icon: PresentationResourcesSettings.ayuGramSpy, accessory: .disclosure, action: { [weak self] in
                 guard let self else {
                     return
                 }
                 self.pushController(ayuGramEmptyController(context: self.context, title: "Spy"))
             }),
-            AyuGramFeatureRow(title: "Filters", icon: UIImage(systemName: "line.3.horizontal.decrease.circle.fill"), action: { [weak self] in
+            AyuGramRow(title: "Filters", icon: PresentationResourcesSettings.ayuGramFilters, accessory: .disclosure, action: { [weak self] in
                 guard let self else {
                     return
                 }
                 self.pushController(ayuGramEmptyController(context: self.context, title: "Filters"))
             }),
-            AyuGramFeatureRow(title: "Customization", icon: UIImage(systemName: "paintbrush.pointed.fill"), action: { [weak self] in
+            AyuGramRow(title: "Customization", icon: PresentationResourcesSettings.ayuGramCustomization, accessory: .disclosure, action: { [weak self] in
                 guard let self else {
                     return
                 }
                 self.pushController(ayuGramEmptyController(context: self.context, title: "Customization"))
             })
-        ]
+        ])
 
-        self.displayNode = AyuGramFeaturesControllerNode(theme: self.presentationData.theme, logo: PresentationResourcesSettings.ayuGramSettings, rows: rows)
+        let links = AyuGramSection(header: "LINKS", rows: [
+            AyuGramRow(title: "Channel", icon: nil, accessory: .value("@ayugram"), action: { [weak self] in
+                self?.openLink("https://t.me/ayugram")
+            }),
+            AyuGramRow(title: "Chats", icon: nil, accessory: .value("@ayugramchat"), action: { [weak self] in
+                self?.openLink("https://t.me/ayugramchat")
+            }),
+            AyuGramRow(title: "Documentation", icon: nil, accessory: .value("ayugram.one"), action: { [weak self] in
+                self?.openLink("https://ayugram.one")
+            })
+        ])
+
+        self.displayNode = AyuGramSettingsControllerNode(theme: self.presentationData.theme, sections: [categories, links])
         self.displayNodeDidLoad()
     }
 
