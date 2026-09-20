@@ -248,6 +248,10 @@
       "airProfileFactsItems": 1
     },
     "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreen.swift": {
+      "AIRChatCreationDateStore": 1,
+      "AIRSettingsManager": 1,
+      "airChatCreationDateObserver": 5,
+      "airFactsObserver": 5,
       "airagram": 1,
       "aygSuggestGhostModeBeforeStory": 1
     },

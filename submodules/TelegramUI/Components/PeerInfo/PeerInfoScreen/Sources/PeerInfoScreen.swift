@@ -326,6 +326,11 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     
     var forumTopicNotificationExceptions: [EngineMessageHistoryThread.NotificationException] = []
     var forumTopicNotificationExceptionsDisposable: Disposable?
+
+    // AIR: see the two `NotificationCenter.default.addObserver` calls at the
+    // end of `init` below.
+    private var airFactsObserver: NSObjectProtocol?
+    private var airChatCreationDateObserver: NSObjectProtocol?
     
     var translationState: ChatTranslationState?
     var translationStateDisposable: Disposable?
@@ -2658,9 +2663,36 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 }
             })
         }
+
+        // AIR: relayout whenever an AiraGram Профиль fact might have changed —
+        // a setting flipped while this screen is already open, or an async
+        // lookup (the channel/group creation date) just resolved. `infoItems`
+        // and `settingsItems` are rebuilt on every layout pass regardless of
+        // what changed, so a plain relayout is enough; nothing here needs to
+        // know which of the two happened.
+        self.airFactsObserver = NotificationCenter.default.addObserver(
+            forName: AIRSettingsManager.settingsChangedNotification,
+            object: nil,
+            queue: OperationQueue.main
+        ) { [weak self] _ in
+            self?.requestLayout(animated: false)
+        }
+        self.airChatCreationDateObserver = NotificationCenter.default.addObserver(
+            forName: AIRChatCreationDateStore.updatedNotification,
+            object: nil,
+            queue: OperationQueue.main
+        ) { [weak self] _ in
+            self?.requestLayout(animated: false)
+        }
     }
     
     deinit {
+        if let airFactsObserver = self.airFactsObserver {
+            NotificationCenter.default.removeObserver(airFactsObserver)
+        }
+        if let airChatCreationDateObserver = self.airChatCreationDateObserver {
+            NotificationCenter.default.removeObserver(airChatCreationDateObserver)
+        }
         self.dataDisposable?.dispose()
         self.hiddenMediaDisposable?.dispose()
         self.activeActionDisposable.dispose()

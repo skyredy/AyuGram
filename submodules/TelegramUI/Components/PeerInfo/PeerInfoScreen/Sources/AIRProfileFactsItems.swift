@@ -5,6 +5,7 @@ import AsyncDisplayKit
 import SwiftSignalKit
 import TelegramCore
 import TelegramPresentationData
+import TelegramStringFormatting
 import AccountContext
 import AiraGramUI
 import UndoUI
@@ -112,6 +113,36 @@ func airProfileFactsItems(
         ))
     }
 
+    // AIR: "Точная дата создания канала". Read off the chat's own first
+    // message — see AIRChatCreationDate.swift for why that is the only source
+    // there is. The row is simply absent until the lookup resolves, the same
+    // choice as the data-centre row above: a placeholder that never fills in
+    // for a chat nobody can find the first message of would be worse than no
+    // row at all.
+    // "или группы" — the settings description promises both, so a plain
+    // group (not yet upgraded to a supergroup) is included too.
+    let airIsGroupOrChannel: Bool
+    switch peer {
+    case .channel, .legacyGroup:
+        airIsGroupOrChannel = true
+    default:
+        airIsGroupOrChannel = false
+    }
+    if settings.exactChannelCreationDate, airIsGroupOrChannel {
+        AIRChatCreationDateStore.ensureLoaded(context: context, peerId: peer.id)
+        if let timestamp = AIRChatCreationDateStore.cachedCreationDate(peerId: peer.id) {
+            items.append(PeerInfoScreenLabeledValueItem(
+                id: AIRProfileFactsItemId.created.rawValue,
+                label: airString("FactCreated"),
+                text: stringForDate(timestamp: timestamp, strings: presentationData.strings),
+                action: nil,
+                requestLayout: { animated in
+                    interaction.requestLayout(animated)
+                }
+            ))
+        }
+    }
+
     return items
 }
 
@@ -123,6 +154,7 @@ private enum AIRProfileFactsItemId: Int {
     case dataCenter = 9701
     case mutual = 9702
     case registered = 9703
+    case created = 9704
 }
 
 /// "около авг. 2024", or a bound when the id falls outside the anchor table.
