@@ -140,6 +140,12 @@ public func stringForMessageTimestamp(timestamp: Int32, dateTimeFormat: Presenta
         gmtime_r(&t, &timeinfo)
     }
     
+    // AIR: "Секунды у времени". Every message and post timestamp comes through
+    // here, and this is the only place in the app that already holds the raw
+    // seconds, so the setting is answered here rather than at each caller.
+    // OR rather than override: a caller that explicitly asked for seconds still
+    // gets them when the setting is off.
+    let withSeconds = withSeconds || AIRSettingsManager.shared.showsSeconds
     return stringForShortTimestamp(hours: timeinfo.tm_hour, minutes: timeinfo.tm_min, seconds: withSeconds ? timeinfo.tm_sec : nil, dateTimeFormat: dateTimeFormat)
 }
 

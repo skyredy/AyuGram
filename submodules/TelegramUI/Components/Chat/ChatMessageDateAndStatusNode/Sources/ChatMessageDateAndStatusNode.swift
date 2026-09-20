@@ -554,7 +554,8 @@ public class ChatMessageDateAndStatusNode: ASDisplayNode {
                 }
             }
             if let impressionCount = arguments.impressionCount {
-                updatedDateText = compactNumericCountString(impressionCount, decimalSeparator: arguments.presentationData.dateTimeFormat.decimalSeparator) + " " + updatedDateText
+                // AIR: "Точное число просмотров" decides between 27.4K and 27 456.
+                updatedDateText = airFormattedViewCount(impressionCount, dateTimeFormat: arguments.presentationData.dateTimeFormat) + " " + updatedDateText
             }
             
             let dateFont = Font.regular(floor(arguments.presentationData.fontSize.baseDisplaySize * 11.0 / 17.0))

@@ -26,6 +26,10 @@ enum InfoSection: Int, CaseIterable {
     case groupLocation
     case calls
     case personalChannel
+    // AIR: the ID / DC / Взаимные block, directly above the username card.
+    // Its own section so it reads as a separate card rather than extra rows
+    // bolted onto Telegram's.
+    case airFacts
     case peerInfo
     case balances
     case permissions
@@ -58,6 +62,10 @@ func infoItems(
     for section in InfoSection.allCases {
         items[section] = []
     }
+
+    // AIR: built in its own file — see AIRProfileFactsItems.swift. Empty unless
+    // the AiraGram Профиль category switched something on.
+    items[.airFacts] = airProfileFactsItems(data: data, context: context, presentationData: presentationData, interaction: interaction)
     
     let bioContextAction: (ASDisplayNode, ContextGesture?, CGPoint?) -> Void = { node, gesture, _ in
         interaction.openBioContextMenu(node, gesture)
@@ -155,7 +163,11 @@ func infoItems(
             ))
         }
         
-        if let phone = user.phone {
+        // AIR: "Скрыть свой номер телефона" — own profile only. Other people's
+        // numbers are theirs and stay where Telegram puts them; this is about
+        // not having your own on screen when somebody is looking over your
+        // shoulder.
+        if let phone = user.phone, !(isMyProfile && AIRSettingsManager.shared.profile.hideOwnPhoneNumber) {
             let formattedPhone = formatPhoneNumber(context: context, number: phone)
             let label: String
             if formattedPhone.hasPrefix("+888 ") {

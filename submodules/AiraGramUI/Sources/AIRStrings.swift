@@ -111,7 +111,21 @@ private let airStringsRu: [String: String] = [
     "MenuSponsoredChannel": "Спонсорский канал",
     "MenuMiniApps": "Мини-приложения",
     "MenuShowAll": "Показать все",
-    "MenuHideAll": "Скрыть все"
+    "MenuHideAll": "Скрыть все",
+
+    // Facts shown in a profile
+    "FactId": "ID",
+    "FactDc": "Дата-центр",
+    "FactMutual": "Взаимные",
+    "FactMutualYes": "Да",
+    "FactMutualNo": "Нет",
+    "FactRegistered": "Регистрация",
+    "FactRegisteredApprox": "около %@",
+    "FactRegisteredOlder": "раньше %@",
+    "FactRegisteredNewer": "позже %@",
+    "FactCreated": "Создан",
+    "FactIdCopied": "ID скопирован",
+    "FactDcCopied": "Номер дата-центра скопирован"
 ]
 
 private let airStringsEn: [String: String] = [
@@ -178,5 +192,19 @@ private let airStringsEn: [String: String] = [
     "MenuSponsoredChannel": "Sponsored channel",
     "MenuMiniApps": "Mini apps",
     "MenuShowAll": "Show all",
-    "MenuHideAll": "Hide all"
+    "MenuHideAll": "Hide all",
+
+    // Facts shown in a profile
+    "FactId": "ID",
+    "FactDc": "Data centre",
+    "FactMutual": "Mutual",
+    "FactMutualYes": "Yes",
+    "FactMutualNo": "No",
+    "FactRegistered": "Signed up",
+    "FactRegisteredApprox": "around %@",
+    "FactRegisteredOlder": "before %@",
+    "FactRegisteredNewer": "after %@",
+    "FactCreated": "Created",
+    "FactIdCopied": "ID copied",
+    "FactDcCopied": "Data centre number copied"
 ]
