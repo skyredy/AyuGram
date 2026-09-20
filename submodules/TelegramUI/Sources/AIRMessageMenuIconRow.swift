@@ -63,8 +63,30 @@ public func airRestructuredMessageMenuActions(_ actions: [ContextMenuItem], stri
         return actions
     }
 
+    // Pulling three entries out by no means also pulls out the separators
+    // that sat between or around them — left alone, those collapse into a
+    // run of two or three blank dividers in a row. The custom row already
+    // draws its own single divider underneath itself (`needsSeparator`), so
+    // a leading one here would be a second; a run of interior ones just
+    // needs folding down to one.
+    var cleaned: [ContextMenuItem] = []
+    for entry in remaining {
+        if case .separator = entry {
+            if cleaned.isEmpty {
+                continue
+            }
+            if case .separator = cleaned[cleaned.count - 1] {
+                continue
+            }
+        }
+        cleaned.append(entry)
+    }
+    if case .separator = cleaned.last {
+        cleaned.removeLast()
+    }
+
     var result: [ContextMenuItem] = [.custom(AIRMessageMenuIconRowItem(actionItems: rowItems), false)]
-    result.append(contentsOf: remaining)
+    result.append(contentsOf: cleaned)
     return result
 }
 
