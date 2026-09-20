@@ -3,6 +3,7 @@ import UIKit
 import AsyncDisplayKit
 import Display
 import TelegramPresentationData
+import TelegramCore
 import WallpaperBackgroundNode
 
 public enum ChatMessageBackgroundMergeType: Equatable {
@@ -72,6 +73,10 @@ public class ChatMessageBackground: ASDisplayNode {
     private var imageFrame: CGRect?
     private var imageView: UIImageView?
     private var imageViewImage: UIImage?
+    // AIR: "Стекло на сообщениях" — see AIRBubbleGlass.swift. Built lazily, and
+    // only when the setting is on, so a chat with the feature off allocates
+    // nothing extra per bubble.
+    private var airGlassView: AIRBubbleGlassView?
     
     public var customHighlightColor: UIColor? {
         didSet {
@@ -336,8 +341,43 @@ public class ChatMessageBackground: ASDisplayNode {
         if let imageView = self.imageView {
             imageView.image = image
         }
+        self.airUpdateGlass(image: image, isDark: graphics.airIsDark, transition: transition)
         
         self.outlineImageNode.image = outlineImage
+    }
+
+    /// Adds, updates or removes the glass layer for the current bubble artwork.
+    ///
+    /// The solid artwork is kept in place underneath at a low alpha rather than
+    /// removed: it is what gives the bubble an edge, and glass with no edge on
+    /// a busy wallpaper is unreadable.
+    private func airUpdateGlass(image: UIImage?, isDark: Bool, transition: ContainedViewLayoutTransition) {
+        guard airMessageGlassEnabled, let image else {
+            if let glassView = self.airGlassView {
+                glassView.removeFromSuperview()
+                self.airGlassView = nil
+            }
+            self.imageView?.alpha = 1.0
+            return
+        }
+
+        let glassView: AIRBubbleGlassView
+        if let current = self.airGlassView {
+            glassView = current
+        } else {
+            glassView = AIRBubbleGlassView()
+            self.airGlassView = glassView
+            if let imageView = self.imageView {
+                self.view.insertSubview(glassView, belowSubview: imageView)
+            } else {
+                self.view.addSubview(glassView)
+            }
+        }
+
+        let size = self.imageFrame?.size ?? self.bounds.size
+        glassView.frame = CGRect(origin: self.imageFrame?.origin ?? CGPoint(), size: size)
+        glassView.update(size: size, image: image, isDark: isDark, transition: transition)
+        self.imageView?.alpha = 0.25
     }
 
     public func animateFrom(sourceView: UIView, transition: CombinedTransition) {

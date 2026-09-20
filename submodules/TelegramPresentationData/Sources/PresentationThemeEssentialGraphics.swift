@@ -202,11 +202,19 @@ public final class PrincipalThemeEssentialGraphics {
     public let outgoingBubbleGradientImage: UIImage?
     
     public let hasWallpaper: Bool
+    /// AIR: whether this graphics set was built for a dark theme.
+    ///
+    /// Carried here because the bubble background is handed graphics but no
+    /// theme, and the glass material needs to know which way to lean. Reading
+    /// the trait collection instead would be wrong for a dark Telegram theme on
+    /// a light system.
+    public let airIsDark: Bool
     
     init(presentationTheme: PresentationTheme, wallpaper initialWallpaper: TelegramWallpaper, preview: Bool = false, bubbleCorners: PresentationChatBubbleCorners) {
         let theme = presentationTheme.chat
         let wallpaper = initialWallpaper
         self.hasWallpaper = !wallpaper.isEmpty
+        self.airIsDark = presentationTheme.overallDarkAppearance
         
         let incoming: PresentationThemeBubbleColorComponents = wallpaper.isEmpty ? theme.message.incoming.bubble.withoutWallpaper : theme.message.incoming.bubble.withWallpaper
         let outgoing: PresentationThemeBubbleColorComponents = wallpaper.isEmpty ? theme.message.outgoing.bubble.withoutWallpaper : theme.message.outgoing.bubble.withWallpaper
