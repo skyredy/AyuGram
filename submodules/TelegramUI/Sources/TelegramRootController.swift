@@ -229,9 +229,12 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         contactsController.switchToChatsController = {  [weak self] in
             self?.openChatsController(activateSearch: false)
         }
-        controllers.append(contactsController)
+        // AIR: "Скрыть «Контакты»" / "Скрыть «Звонки»".
+        if !AIRSettingsManager.shared.tabs.hideContactsTab {
+            controllers.append(contactsController)
+        }
         
-        if showCallsTab {
+        if showCallsTab && !AIRSettingsManager.shared.tabs.hideCallsTab {
             controllers.append(callListController)
         }
         controllers.append(chatListController)
@@ -262,6 +265,8 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         self.chatListController = chatListController
         self.accountSettingsController = accountSettingsController
         self.rootTabController = tabBarController
+        // AIR: rebuild the bar when the Вкладки switches change.
+        AIRTabVisibility.shared.attach(root: self, showCallsTab: showCallsTab)
         self.pushViewController(tabBarController, animated: false)
     }
         
@@ -269,9 +274,15 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         guard let rootTabController = self.rootTabController as? TabBarControllerImpl else {
             return
         }
+        // AIR: keep the remembered value in step — Telegram calls this when its
+        // own Calls-tab setting changes.
+        AIRTabVisibility.shared.noteShowCallsTab(showCallsTab)
+
         var controllers: [ViewController] = []
-        controllers.append(self.contactsController!)
-        if showCallsTab {
+        if !AIRSettingsManager.shared.tabs.hideContactsTab {
+            controllers.append(self.contactsController!)
+        }
+        if showCallsTab && !AIRSettingsManager.shared.tabs.hideCallsTab {
             controllers.append(self.callListController!)
         }
         controllers.append(self.chatListController!)

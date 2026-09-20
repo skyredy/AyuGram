@@ -2,6 +2,7 @@ import Foundation
 import UIKit
 import Display
 import TelegramPresentationData
+import TelegramCore
 import ComponentFlow
 import ComponentDisplayAdapters
 import GlassBackgroundComponent
@@ -653,7 +654,16 @@ public final class TabBarComponent: Component {
             let _ = alphaTransition
 
             let innerInset: CGFloat = 4.0
-            let availableSize = CGSize(width: min(500.0, availableSize.width), height: availableSize.height)
+            // AIR: "Ширина панели". The bar is already centred by its container,
+            // so narrowing what it is allowed to occupy moves it inwards from
+            // both sides rather than cropping it. Laid out narrower for real,
+            // not scaled, so the labels stay crisp.
+            let airTabs = AIRSettingsManager.shared.tabs
+            // Never wider than what the container actually offers: above 100%
+            // the factor is allowed to reclaim the 500pt cap, not to overflow
+            // the screen and be clipped.
+            let airTabsWidth = min(availableSize.width, min(500.0, availableSize.width) * airTabs.widthFactor)
+            let availableSize = CGSize(width: airTabsWidth, height: availableSize.height)
             
             let previousComponent = self.component
             self.component = component
@@ -724,7 +734,10 @@ public final class TabBarComponent: Component {
                 totalItemsWidth = total
             }
 
-            let itemHeight: CGFloat = 56.0
+            // AIR: "Высота панели". Scales the row the items sit in; they stay
+            // their own size and stay centred in it, so the bar grows or
+            // shrinks around them.
+            let itemHeight: CGFloat = 56.0 * airTabs.heightFactor
             let contentWidth: CGFloat = innerInset * 2.0 + totalItemsWidth
             let tabsSize = CGSize(width: min(availableSize.width, contentWidth), height: itemHeight + innerInset * 2.0)
 

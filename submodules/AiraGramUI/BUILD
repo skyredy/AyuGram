@@ -11,9 +11,13 @@ swift_library(
     ],
     deps = [
         "//submodules/AccountContext:AccountContext",
+        "//submodules/AppBundle:AppBundle",
         "//submodules/AsyncDisplayKit:AsyncDisplayKit",
         "//submodules/Display:Display",
+        "//submodules/TelegramUI/Components/TabBarComponent",
+        "//submodules/ComponentFlow:ComponentFlow",
         "//submodules/ItemListUI:ItemListUI",
+        "//submodules/LegacyComponents:LegacyComponents",
         "//submodules/MergeLists:MergeLists",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
