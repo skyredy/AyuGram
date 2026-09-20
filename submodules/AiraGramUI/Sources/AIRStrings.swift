@@ -113,6 +113,13 @@ private let airStringsRu: [String: String] = [
     "MenuShowAll": "Показать все",
     "MenuHideAll": "Скрыть все",
 
+    "ExperimentalHeader": "Новый вид",
+    "NewProfileView": "Новый вид профиля",
+    "NewProfileViewInfo": "Фото профиля становится во весь экран, а под ним — размытая подложка из этого же фото. Кнопки звонка, поиска и остальных действий становятся круглыми и стеклянными.",
+    "NewMessageMenu": "Новое меню сообщений",
+    "NewMessageMenuInfo": "Меню при долгом нажатии на сообщение без размытия фона. Выбрать, Скопировать и Удалить собраны в один ряд круглых кнопок, крупнее панель реакций.",
+    "RestartNeeded": "Изменения применятся после перезапуска AiraGram. Закрой приложение и открой заново.",
+
     // Facts shown in a profile
     "FactId": "ID",
     "FactDc": "Дата-центр",
@@ -193,6 +200,13 @@ private let airStringsEn: [String: String] = [
     "MenuMiniApps": "Mini apps",
     "MenuShowAll": "Show all",
     "MenuHideAll": "Hide all",
+
+    "ExperimentalHeader": "New look",
+    "NewProfileView": "New profile view",
+    "NewProfileViewInfo": "The profile photo fills the whole screen, with a blurred copy of it behind everything below. The call, search and other action buttons become round and glass.",
+    "NewMessageMenu": "New message menu",
+    "NewMessageMenuInfo": "The long-press menu with no background blur. Select, Copy and Delete are merged into one row of round buttons, and the reaction strip is bigger.",
+    "RestartNeeded": "Changes apply after AiraGram restarts. Close the app and open it again.",
 
     // Facts shown in a profile
     "FactId": "ID",
