@@ -17,7 +17,7 @@ public var airSettingsRowTitle: String { airString("SettingsRowTitle") }
 /// rather than spelled out at the call sites so that filling them in later is
 /// one edit to one file, not a search across the module.
 public enum AIRAddresses {
-    public static let channelUsername = "airagram"
+    public static let channelUsername = "airagrama"
     public static let chatUsername = "airagramchat"
     public static let translationsURL = "https://crowdin.com/project/airagram"
     public static let documentationURL = "https://airagram.one"

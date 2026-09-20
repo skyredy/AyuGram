@@ -2,13 +2,16 @@ import Foundation
 import UIKit
 import Display
 import TelegramPresentationData
+import AppBundle
 
 // AIR: the four categories of the AiraGram screen and the four links under them.
 //
 // Layout mirrors the AyuGram screen exactly — a centred header, a CATEGORIES
 // block, a LINKS block — because the two sit next to each other in Settings and
 // a user moving between them should not have to relearn anything. What differs
-// is the contents and the icons: SF Symbols here, shipped artwork there.
+// is the contents: the four categories are AiraGram's own, drawn with SF
+// Symbols, while the four links reuse AyuGram's artwork so the two LINKS
+// blocks match.
 
 public enum AIRSettingsCategory: Int, CaseIterable {
     case profile
@@ -85,16 +88,22 @@ public enum AIRSettingsLink: Int, CaseIterable {
         }
     }
 
-    var symbolName: String {
+    /// The links reuse AyuGram's own artwork rather than SF Symbols.
+    ///
+    /// The two sections sit next to each other in Settings and their LINKS
+    /// blocks say the same four things; drawing them with two different icon
+    /// styles would make the pair look accidental. The categories above still
+    /// use symbols - those are AiraGram's own and have no counterpart to match.
+    var iconName: String {
         switch self {
-        case .channel: return "megaphone"
-        case .chat: return "bubble.left.and.bubble.right"
-        case .translations: return "globe"
-        case .documentation: return "book.closed"
+        case .channel: return "AyuGram/AYGChannel"
+        case .chat: return "AyuGram/AYGChats"
+        case .translations: return "AyuGram/AYGTranslate"
+        case .documentation: return "AyuGram/AYGDocs"
         }
     }
 
     func icon(theme: PresentationTheme) -> UIImage? {
-        return airTintedSymbolImage(self.symbolName, color: theme.list.itemSecondaryTextColor)
+        return generateTintedImage(image: UIImage(bundleImageName: self.iconName), color: theme.list.itemSecondaryTextColor)
     }
 }
