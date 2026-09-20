@@ -6,6 +6,7 @@ import Display
 import TelegramPresentationData
 import AccountContext
 import WallpaperBackgroundNode
+import AiraGramGlass
 import UrlHandling
 import SwiftSignalKit
 import TextLoadingEffect
@@ -78,6 +79,11 @@ private final class ChatMessageActionButtonNode: ASDisplayNode {
     private var backgroundContent: WallpaperBubbleBackgroundNode?
     private var backgroundColorNode: ASDisplayNode?
     private var backgroundColorView: UIImageView?
+    // AIR: "Стекло на кнопках ботов" — see AIRGlass.swift. Sits below
+    // everything else in the node and is clipped by the node's own mask
+    // (`node.layer.mask` / `cornerRadius`, set further down), so it never
+    // needs to know this button's corner shape itself.
+    private var airGlassView: AIRGlassPanelView?
     
     private var maskPath: CGPath?
     private var loadingEffectView: TextLoadingEffectView?
@@ -407,6 +413,36 @@ private final class ChatMessageActionButtonNode: ASDisplayNode {
                         }
                     } else {
                         node.backgroundBlurView?.view.isHidden = false
+                    }
+                    
+                    // AIR: "Стекло на кнопках ботов". Placed after the blur and
+                    // wallpaper-bubble backdrop above have settled their own
+                    // visibility, so this is the one that has the final say —
+                    // otherwise the wallpaper-bubble branch's `else` (a few
+                    // lines up) re-shows the blur and buries the glass under it.
+                    let airButtonRect = CGRect(origin: CGPoint(), size: CGSize(width: max(0.0, width), height: 42.0))
+                    if airBotButtonsGlassEnabled {
+                        let airGlassView: AIRGlassPanelView
+                        if let current = node.airGlassView {
+                            airGlassView = current
+                        } else {
+                            airGlassView = AIRGlassPanelView()
+                            node.airGlassView = airGlassView
+                            // Index 0: below the blur/wallpaper backdrop, the
+                            // label and the icon, all of which were inserted
+                            // or re-affirmed above.
+                            node.view.insertSubview(airGlassView, at: 0)
+                        }
+                        airGlassView.frame = airButtonRect
+                        airGlassView.update(size: airButtonRect.size, cornerRadius: bubbleCorners.auxiliaryRadius, isDark: theme.theme.overallDarkAppearance, tint: .clear, transition: .immediate)
+                        node.backgroundBlurView?.view.isHidden = true
+                        node.backgroundContent?.isHidden = true
+                    } else {
+                        if let airGlassView = node.airGlassView {
+                            airGlassView.removeFromSuperview()
+                            node.airGlassView = nil
+                        }
+                        node.backgroundContent?.isHidden = false
                     }
                     
                     let rect = CGRect(origin: CGPoint(), size: CGSize(width: max(0.0, width), height: 42.0))

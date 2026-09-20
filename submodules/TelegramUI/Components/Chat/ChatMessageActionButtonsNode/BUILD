@@ -17,6 +17,7 @@ swift_library(
         "//submodules/TelegramPresentationData",
         "//submodules/AccountContext",
         "//submodules/WallpaperBackgroundNode",
+        "//submodules/AiraGramGlass",
         "//submodules/UrlHandling",
         "//submodules/TelegramUI/Components/TextLoadingEffect",
         "//submodules/ComponentFlow",

@@ -4,6 +4,7 @@ import Display
 import AsyncDisplayKit
 import SwiftSignalKit
 import TelegramPresentationData
+import TelegramCore
 import LegacyComponents
 import ItemListUI
 import PresentationDataUtils
@@ -111,7 +112,7 @@ public final class AIRPercentSliderItemNode: ListViewItemNode, ItemListItemNode 
         self.valueNode = TextNode()
         self.valueNode.isUserInteractionEnabled = false
 
-        super.init(layerBacked: false, dynamicBounce: false)
+        super.init(layerBacked: false)
 
         self.addSubnode(self.titleNode)
         self.addSubnode(self.valueNode)

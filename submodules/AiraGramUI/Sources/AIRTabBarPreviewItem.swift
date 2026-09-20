@@ -73,7 +73,7 @@ public final class AIRTabBarPreviewItemNode: ListViewItemNode, ItemListItemNode 
     }
 
     public init() {
-        super.init(layerBacked: false, dynamicBounce: false)
+        super.init(layerBacked: false)
     }
 
     public func asyncLayout() -> (_ item: AIRTabBarPreviewItem, _ params: ListViewItemLayoutParams) -> (ListViewItemNodeLayout, () -> Void) {

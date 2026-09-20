@@ -4,6 +4,7 @@ import AsyncDisplayKit
 import Display
 import TelegramPresentationData
 import TelegramCore
+import AiraGramGlass
 import WallpaperBackgroundNode
 
 public enum ChatMessageBackgroundMergeType: Equatable {

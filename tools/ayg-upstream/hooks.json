@@ -152,6 +152,13 @@
       "AIRLastSeenTracker": 1,
       "airLastSeenSuffixed": 1
     },
+    "submodules/TelegramUI/Components/Chat/ChatMessageActionButtonsNode/Sources/ChatMessageActionButtonsNode.swift": {
+      "AIRGlass": 1,
+      "AIRGlassPanelView": 3,
+      "airBotButtonsGlassEnabled": 1,
+      "airButtonRect": 3,
+      "airGlassView": 14
+    },
     "submodules/TelegramUI/Components/Chat/ChatMessageAnimatedStickerItemNode/Sources/ChatMessageAnimatedStickerItemNode.swift": {
       "AYGCustomizationManager": 1,
       "aygDisplayAlpha": 4,
