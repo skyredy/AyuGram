@@ -651,6 +651,12 @@ func chatListNodeEntriesForView(view: EngineChatList, state: ChatListNodeState, 
     }
     
     let filteredAdditionalItemEntries = view.additionalItems.filter { item -> Bool in
+        // AIR: "Спонсорский канал" — the proxy-sponsored and PSA chats Telegram
+        // pins above the chat list. Filtered here, where the list already drops
+        // a PSA the user dismissed, so both removals leave the same shape.
+        if AIRSettingsManager.shared.isMenuSectionHidden(.sponsoredChannel) {
+            return false
+        }
         return item.item.renderedPeer.peerId != state.hiddenPsaPeerId
     }
     

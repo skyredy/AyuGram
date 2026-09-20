@@ -351,7 +351,9 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
             result.append((section, sectionItems))
         }
     }
-    return result
+    // AIR: "Разделы меню" drops the rows the user switched off. One filter over
+    // the finished list — see AIRMenuVisibility.swift for why, and for the table.
+    return airFilterHiddenSettingsSections(result)
 }
 
 func settingsEditingItems(data: PeerInfoScreenData?, state: PeerInfoState, context: AccountContext, presentationData: PresentationData, interaction: PeerInfoInteraction, isMyProfile: Bool) -> [(AnyHashable, [PeerInfoScreenItem])] {
