@@ -21,6 +21,13 @@ jobs:
           XCODE_VERSION=$(cat versions.json | python3 -c 'import json,sys;obj=json.load(sys.stdin);print(obj["xcode"]);')
           sudo xcode-select -s /Applications/Xcode_$XCODE_VERSION.app/Contents/Developer
 
+      # Our features reach upstream code through ~350 call sites planted in files
+      # Telegram owns. A merge of a new Telegram release can drop one cleanly and
+      # still produce a file that compiles, leaving the feature dead. This is the
+      # only check that notices. See docs/AYGUpstreamUpdate.md.
+      - name: Verify AyuGram hook inventory
+        run: python3 tools/ayg-upstream/ayg_hooks.py check
+
       # Bazel's disk cache lives outside the checkout so it survives across runs/branches.
       # The restore key is intentionally unique (never matches) so it always falls through to
       # restore-keys and picks up the most recent snapshot; the save step below then always

@@ -110,3 +110,6 @@ codesigning-appstore/
 build-system/AYGAdHocConfiguration.json
 build-system/AYGAppStoreConfiguration.json
 build-system/AYGDevelopmentConfiguration.json
+
+# Bazel convenience symlinks (machine-local, point at the local execroot)
+/bazel-*
