@@ -8,7 +8,16 @@
       "AYGFiltersManager": 1
     },
     "submodules/ChatListUI/Sources/Node/ChatListNodeEntries.swift": {
+      "AIRSettingsManager": 1,
       "AYGFilterEngine": 2
+    },
+    "submodules/ChatMessageBackground/Sources/ChatMessageBackground.swift": {
+      "AIRBubbleGlass": 1,
+      "AIRBubbleGlassView": 3,
+      "airGlassView": 5,
+      "airIsDark": 1,
+      "airMessageGlassEnabled": 1,
+      "airUpdateGlass": 2
     },
     "submodules/GalleryData/Sources/GalleryData.swift": {
       "aygKeepsViewOnce": 5,
@@ -125,6 +134,9 @@
     "submodules/TelegramCore/Sources/TelegramEngine/Peers/AdPeers.swift": {
       "AYGCustomizationManager": 1
     },
+    "submodules/TelegramCore/Sources/UpdatePeers.swift": {
+      "AIRLastSeenTracker": 3
+    },
     "submodules/TelegramCore/Sources/Utils/MessageUtils.swift": {
       "AYGForwardingManager": 1,
       "aygIsCopyProtectedIgnoringBypass": 2
@@ -132,6 +144,13 @@
     "submodules/TelegramCore/Sources/Utils/PeerUtils.swift": {
       "AYGForwardingManager": 1,
       "aygIsCopyProtectionEnabledIgnoringBypass": 2
+    },
+    "submodules/TelegramPresentationData/Sources/PresentationThemeEssentialGraphics.swift": {
+      "airIsDark": 2
+    },
+    "submodules/TelegramStringFormatting/Sources/PresenceStrings.swift": {
+      "AIRLastSeenTracker": 1,
+      "airLastSeenSuffixed": 1
     },
     "submodules/TelegramUI/Components/Chat/ChatMessageAnimatedStickerItemNode/Sources/ChatMessageAnimatedStickerItemNode.swift": {
       "AYGCustomizationManager": 1,
@@ -238,6 +257,8 @@
       "aygSettingsController": 1
     },
     "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoSettingsItems.swift": {
+      "AIRMenuVisibility": 1,
+      "airFilterHiddenSettingsSections": 1,
       "airSettingsRowTitle": 1,
       "airagram": 4,
       "aygSettingsRowTitle": 1
@@ -268,6 +289,11 @@
       "AYGCustomizationManager": 1,
       "AYGGhost": 1,
       "aygShowsGhostStatus": 3
+    },
+    "submodules/TelegramUI/Components/TabBarComponent/Sources/TabBarComponent.swift": {
+      "AIRSettingsManager": 1,
+      "airTabs": 3,
+      "airTabsWidth": 2
     },
     "submodules/TelegramUI/Sources/AppDelegate.swift": {
       "AYGIcon": 2
@@ -330,6 +356,8 @@
       "aygIsCopyProtectionEnabled": 1
     },
     "submodules/TelegramUI/Sources/TelegramRootController.swift": {
+      "AIRSettingsManager": 4,
+      "AIRTabVisibility": 2,
       "AYGLocalPremiumManager": 1,
       "airObserveStringsLanguage": 1,
       "aygObserveStringsLanguage": 1,
