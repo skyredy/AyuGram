@@ -56,7 +56,19 @@ public final class AIRSettingsManager {
     public static let settingsChangedNotification = Notification.Name("AIRSettingsChanged")
 
     private func notifySettingsChanged() {
-        NotificationCenter.default.post(name: AIRSettingsManager.settingsChangedNotification, object: nil)
+        // Dispatched rather than posted synchronously: a setting can be
+        // written from inside a live UIKit control's own callback — a slider
+        // firing on every tick of a drag it is still tracking — and
+        // `NotificationCenter.post` runs every observer on the posting
+        // thread before returning. One of those observers rebuilds the
+        // settings screen that same control lives on, which mutates the
+        // control's own properties (see AIRTabBarPreviewItem /
+        // AIRPercentSliderItem) from inside the callback that is still
+        // running on its behalf. Hopping to the next run loop turn lets the
+        // control's own event handling finish and return to UIKit first.
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: AIRSettingsManager.settingsChangedNotification, object: nil)
+        }
     }
 
     // MARK: - Codec

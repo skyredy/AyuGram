@@ -331,6 +331,14 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     // end of `init` below.
     private var airFactsObserver: NSObjectProtocol?
     private var airChatCreationDateObserver: NSObjectProtocol?
+
+    // AIR: "Новый вид профиля" full-screen backdrop — see
+    // AIRProfileBackdrop.swift. `airBackdropRepresentation` is what the last
+    // fetch was requested for, so a presence tick or any other unrelated
+    // `updateData` call does not re-request the same blur.
+    private let airBackdropView = AIRProfileBackdropView(frame: .zero)
+    private var airBackdropRepresentation: TelegramMediaImageRepresentation?
+    private var airBackdropDisposable: Disposable?
     
     var translationState: ChatTranslationState?
     var translationStateDisposable: Disposable?
@@ -1325,6 +1333,11 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         self.scrollNode.view.alwaysBounceVertical = true
         self.scrollNode.view.scrollsToTop = false
         self.scrollNode.view.delegate = self.wrappedScrollViewDelegate
+        // AIR: behind the scrollable content — see AIRProfileBackdrop.swift.
+        // Added before `scrollNode` so it stays behind it in z-order; empty
+        // and invisible (zero frame, no image) until `updateData` below has a
+        // peer to request one for.
+        self.view.addSubview(self.airBackdropView)
         self.addSubnode(self.scrollNode)
         self.scrollNode.addSubnode(self.paneContainerNode)
         self.scrollNode.view.addSubview(self.headerNode.headerEdgeEffectContainer)
@@ -2693,6 +2706,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         if let airChatCreationDateObserver = self.airChatCreationDateObserver {
             NotificationCenter.default.removeObserver(airChatCreationDateObserver)
         }
+        self.airBackdropDisposable?.dispose()
         self.dataDisposable?.dispose()
         self.hiddenMediaDisposable?.dispose()
         self.activeActionDisposable.dispose()
@@ -2779,6 +2793,7 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
             }
         }
         self.data = data
+        self.airUpdateBackdrop(peer: data.peer)
         if previousData?.members?.membersContext !== data.members?.membersContext {
             if let peer = data.peer, let _ = data.members {
                 self.groupMembersSearchContext = GroupMembersSearchContext(context: self.context, peerId: peer.id)
@@ -2913,7 +2928,29 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         
         setLayerDisableScreenshots(self.layer, peerInfoIsCopyProtected(data: data))
     }
-    
+
+    // AIR: (re)requests the blurred backdrop only when the avatar this would
+    // be built from actually changed — `updateData` above runs on plenty of
+    // updates (presence, notification settings, …) that have nothing to do
+    // with the photo.
+    private func airUpdateBackdrop(peer: EnginePeer?) {
+        let representation = peer?.largeProfileImage
+        guard representation != self.airBackdropRepresentation else {
+            return
+        }
+        self.airBackdropRepresentation = representation
+
+        self.airBackdropDisposable?.dispose()
+        guard let peer, let signal = AIRProfileBackdrop.imageSignal(context: self.context, peer: peer, size: self.bounds.size) else {
+            self.airBackdropView.setImage(nil)
+            return
+        }
+        self.airBackdropDisposable = (signal
+        |> deliverOnMainQueue).startStrict(next: { [weak self] image in
+            self?.airBackdropView.setImage(image)
+        })
+    }
+
     func scrollToTop() {
         if !self.paneContainerNode.scrollToTop() {
             self.scrollNode.view.setContentOffset(CGPoint(), animated: true)
@@ -5456,7 +5493,13 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     
     func containerLayoutUpdated(layout: ContainerViewLayout, navigationHeight: CGFloat, transition: ContainedViewLayoutTransition, additive: Bool = false) {
         self.validLayout = (layout, navigationHeight)
-        
+
+        // AIR: pinned to the screen, not the scrollable content — see
+        // AIRProfileBackdrop.swift for why. Kept in front of nothing but
+        // `scrollNode`'s own frame, which this file already only ever sizes
+        // to the same `layout.size`.
+        transition.updateFrame(view: self.airBackdropView, frame: CGRect(origin: .zero, size: layout.size))
+
         self.headerNode.customNavigationContentNode = self.paneContainerNode.currentPane?.node.navigationContentNode
         
         var isScrollEnabled = !self.isMediaOnly && self.headerNode.customNavigationContentNode == nil

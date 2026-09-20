@@ -1941,7 +1941,15 @@ public final class SharedAccountContextImpl: SharedAccountContext {
     }
     
     public func makePeerInfoController(context: AccountContext, updatedPresentationData: (initial: PresentationData, signal: Signal<PresentationData, NoError>)?, peer: EnginePeer, mode: PeerInfoControllerMode, avatarInitiallyExpanded: Bool, fromChat: Bool, requestsContext: PeerInvitationImportersContext?) -> ViewController? {
-        let controller = peerInfoControllerImpl(context: context, updatedPresentationData: updatedPresentationData, peer: peer, mode: mode, avatarInitiallyExpanded: avatarInitiallyExpanded, isOpenedFromChat: fromChat)
+        // AIR: "Новый вид профиля" starts every profile with its avatar
+        // already full-bleed — this flag is the stock mechanism for exactly
+        // that state (one existing call site, InviteLinksUI, already forces
+        // it true for its own reason). Frozen at launch, like the rest of
+        // this redesign; see AIRExperimentalUI. Only when there is a photo to
+        // fill the screen with — with none, "expanded" has nothing to show
+        // and the small circle is the more honest state.
+        let airAvatarInitiallyExpanded = avatarInitiallyExpanded || (AIRExperimentalUI.newProfileViewActive && peer.largeProfileImage != nil)
+        let controller = peerInfoControllerImpl(context: context, updatedPresentationData: updatedPresentationData, peer: peer, mode: mode, avatarInitiallyExpanded: airAvatarInitiallyExpanded, isOpenedFromChat: fromChat)
         controller?.navigationPresentation = .modalInLargeLayout
         return controller
     }

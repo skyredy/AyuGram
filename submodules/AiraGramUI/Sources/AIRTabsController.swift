@@ -14,10 +14,15 @@ public func airTabsController(context: AccountContext) -> ViewController {
     return airListController(context: context, title: airString("CategoryTabs"), sections: { _ in
         let settings = AIRSettingsManager.shared.tabs
         let isStock = settings.isStockSize
+        // AIR: everything the preview actually draws from. Two identical
+        // previews get the same signature, so only a real change to one of
+        // these four values counts as "this row needs to redraw" — see the
+        // doc comment on `.tabBarPreview` for why that distinction matters.
+        let previewSignature = "\(settings.hideContactsTab)-\(settings.hideCallsTab)-\(settings.heightPercent)-\(settings.widthPercent)"
 
         return [
             AIRListSection(id: 0, rows: [
-                AIRListRow(id: 0, title: "", content: .tabBarPreview)
+                AIRListRow(id: 0, title: "", content: .tabBarPreview(signature: previewSignature))
             ]),
             AIRListSection(id: 1, footer: airString("TabsHideContactsInfo"), rows: [
                 AIRListRow(id: 0, title: airString("TabsHideContacts"), content: .toggle(value: settings.hideContactsTab, updated: { value in
@@ -51,7 +56,7 @@ public func airTabsController(context: AccountContext) -> ViewController {
                 ]
             ),
             AIRListSection(id: 4, rows: [
-                AIRListRow(id: 0, title: "", content: .tabBarPreview)
+                AIRListRow(id: 0, title: "", content: .tabBarPreview(signature: previewSignature))
             ]),
             // Disabled rather than hidden when nothing has been changed: a row
             // that comes and goes as you drag a slider is worse than one that

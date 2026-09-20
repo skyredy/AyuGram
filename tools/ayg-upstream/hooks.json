@@ -14,10 +14,12 @@
     "submodules/ChatMessageBackground/Sources/ChatMessageBackground.swift": {
       "AIRBubbleGlass": 1,
       "AIRBubbleGlassView": 3,
-      "airGlassView": 5,
+      "airGlassRequestedImage": 5,
+      "airGlassRequestedIsDark": 5,
+      "airGlassView": 13,
       "airIsDark": 1,
       "airMessageGlassEnabled": 1,
-      "airUpdateGlass": 2
+      "airUpdateGlass": 3
     },
     "submodules/GalleryData/Sources/GalleryData.swift": {
       "aygKeepsViewOnce": 5,
@@ -31,6 +33,9 @@
       "aygLoadLogo": 2,
       "aygLogoFrame": 3,
       "aygLogoTargetPosition": 2
+    },
+    "submodules/ReactionSelectionNode/Sources/ReactionContextNode.swift": {
+      "AIRExperimentalUI": 2
     },
     "submodules/SettingsUI/Sources/Data and Storage/WebBrowserItem.swift": {
       "AYGIcon": 1
@@ -241,6 +246,14 @@
       "aygGhostStatusObservers": 3,
       "aygShowsGhostStatus": 3
     },
+    "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoHeaderButtonNode.swift": {
+      "AIRExperimentalUI": 2,
+      "AIRGlassPanelView": 2,
+      "AIRSettingsManager": 1,
+      "airButtonGlassEnabled": 3,
+      "airGlassView": 19,
+      "airNewProfileView": 6
+    },
     "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoProfileItems.swift": {
       "AIRProfileFactsItems": 1,
       "AIRSettingsManager": 1,
@@ -249,9 +262,15 @@
     },
     "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreen.swift": {
       "AIRChatCreationDateStore": 1,
+      "AIRProfileBackdrop": 4,
+      "AIRProfileBackdropView": 1,
       "AIRSettingsManager": 1,
+      "airBackdropDisposable": 4,
+      "airBackdropRepresentation": 4,
+      "airBackdropView": 5,
       "airChatCreationDateObserver": 5,
       "airFactsObserver": 5,
+      "airUpdateBackdrop": 2,
       "airagram": 1,
       "aygSuggestGhostModeBeforeStory": 1
     },
@@ -343,7 +362,9 @@
       "aygIsCopyProtectionEnabled": 2
     },
     "submodules/TelegramUI/Sources/ChatInterfaceStateContextMenus.swift": {
+      "AIRMessageMenuIconRow": 1,
       "AYGGhostModeManager": 2,
+      "airRestructuredMessageMenuActions": 1,
       "aygBurnMessageId": 2,
       "aygBurnViewOnceMenuText": 1,
       "aygEditsHistoryMenuText": 1,
@@ -355,6 +376,9 @@
       "aygReadThreadId": 4,
       "aygSendExplicitReadReceipt": 1
     },
+    "submodules/TelegramUI/Sources/ChatMessageContextControllerContentSource.swift": {
+      "AIRExperimentalUI": 2
+    },
     "submodules/TelegramUI/Sources/OpenChatMessage.swift": {
       "aygKeepsViewOnceMedia": 1,
       "aygSuggestGhostModeBeforeStory": 1
@@ -362,11 +386,16 @@
     "submodules/TelegramUI/Sources/OpenResolvedUrl.swift": {
       "aygSuggestGhostModeBeforeStory": 1
     },
+    "submodules/TelegramUI/Sources/SharedAccountContext.swift": {
+      "AIRExperimentalUI": 2,
+      "airAvatarInitiallyExpanded": 2
+    },
     "submodules/TelegramUI/Sources/StoreDownloadedMedia.swift": {
       "AYGForwardingManager": 1,
       "aygIsCopyProtectionEnabled": 1
     },
     "submodules/TelegramUI/Sources/TelegramRootController.swift": {
+      "AIRExperimentalUI": 2,
       "AIRSettingsManager": 4,
       "AIRTabVisibility": 2,
       "AYGLocalPremiumManager": 1,

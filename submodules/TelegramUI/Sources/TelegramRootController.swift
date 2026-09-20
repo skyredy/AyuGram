@@ -248,7 +248,12 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
             sharedContext.switchingData = (nil, nil, nil)
         }
         
-        let accountSettingsController = PeerInfoScreenImpl(context: self.context, updatedPresentationData: nil, peerId: self.context.account.peerId, avatarInitiallyExpanded: false, isOpenedFromChat: false, reactionSourceMessageId: nil, callMessages: [], isSettings: true)
+        // AIR: "Новый вид профиля" — own Settings tab too, confirmed. Unlike
+        // the makePeerInfoController hook, there is no resolved EnginePeer
+        // here to check for a photo without an async round trip, and this
+        // runs at root-controller construction; own profile just follows the
+        // switch. Frozen at launch — see AIRExperimentalUI.
+        let accountSettingsController = PeerInfoScreenImpl(context: self.context, updatedPresentationData: nil, peerId: self.context.account.peerId, avatarInitiallyExpanded: AIRExperimentalUI.newProfileViewActive, isOpenedFromChat: false, reactionSourceMessageId: nil, callMessages: [], isSettings: true)
         accountSettingsController.tabBarItemDebugTapAction = { [weak self] in
             guard let strongSelf = self else {
                 return

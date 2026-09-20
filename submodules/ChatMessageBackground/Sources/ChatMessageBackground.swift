@@ -78,6 +78,12 @@ public class ChatMessageBackground: ASDisplayNode {
     // only when the setting is on, so a chat with the feature off allocates
     // nothing extra per bubble.
     private var airGlassView: AIRBubbleGlassView?
+    // `setType` can run before `didLoad` — the existing code already handles
+    // that for `imageView` by stashing `imageViewImage` and applying it once
+    // the view exists. The glass layer needs the same treatment: what it was
+    // last asked to show, applied once there is a view to attach it to.
+    private var airGlassRequestedImage: UIImage?
+    private var airGlassRequestedIsDark: Bool = false
     
     public var customHighlightColor: UIColor? {
         didSet {
@@ -111,12 +117,16 @@ public class ChatMessageBackground: ASDisplayNode {
         
         imageView.image = self.imageViewImage
         imageView.tintColor = self.customHighlightColor
-        
+
         if let imageFrame = self.imageFrame {
             imageView.frame = imageFrame
         }
+
+        // AIR: apply whatever glass state was requested before the view
+        // existed to attach it to.
+        self.airUpdateGlass(image: self.airGlassRequestedImage, isDark: self.airGlassRequestedIsDark, transition: .immediate)
     }
-    
+
     public func updateLayout(size: CGSize, transition: ContainedViewLayoutTransition) {
         let imageFrame = CGRect(origin: CGPoint(), size: size).insetBy(dx: -1.0, dy: -1.0)
         self.imageFrame = imageFrame
@@ -124,16 +134,26 @@ public class ChatMessageBackground: ASDisplayNode {
             transition.updateFrame(view: imageView, frame: imageFrame)
         }
         transition.updateFrame(node: self.outlineImageNode, frame: CGRect(origin: CGPoint(), size: size).insetBy(dx: -1.0, dy: -1.0))
+        // AIR: a size change alone (no accompanying `setType`) would
+        // otherwise leave the glass layer at its old frame.
+        if let airGlassView = self.airGlassView {
+            transition.updateFrame(view: airGlassView, frame: imageFrame)
+            airGlassView.update(size: imageFrame.size, image: self.airGlassRequestedImage, isDark: self.airGlassRequestedIsDark, transition: transition)
+        }
     }
-    
+
     public func updateLayout(size: CGSize, transition: ListViewItemUpdateAnimation) {
         let imageFrame = CGRect(origin: CGPoint(), size: size).insetBy(dx: -1.0, dy: -1.0)
         self.imageFrame = imageFrame
         if let imageView = self.imageView {
             transition.animator.updateFrame(layer: imageView.layer, frame: imageFrame, completion: nil)
         }
-        
+
         transition.animator.updateFrame(layer: self.outlineImageNode.layer, frame: CGRect(origin: CGPoint(), size: size).insetBy(dx: -1.0, dy: -1.0), completion: nil)
+        if let airGlassView = self.airGlassView {
+            transition.animator.updateFrame(layer: airGlassView.layer, frame: imageFrame, completion: nil)
+            airGlassView.update(size: imageFrame.size, image: self.airGlassRequestedImage, isDark: self.airGlassRequestedIsDark, transition: .immediate)
+        }
     }
     
     public func setMaskMode(_ maskMode: Bool) {
@@ -352,13 +372,29 @@ public class ChatMessageBackground: ASDisplayNode {
     /// The solid artwork is kept in place underneath at a low alpha rather than
     /// removed: it is what gives the bubble an edge, and glass with no edge on
     /// a busy wallpaper is unreadable.
+    ///
+    /// Never touches `self.view` unless `self.imageView` already exists —
+    /// `setType` (the only caller before layout has ever run) can fire before
+    /// `didLoad`, same as it already can for `imageView` itself, and forcing
+    /// the view to load here — off whatever thread `setType` happens to be
+    /// asyncLayout'd onto — is exactly the kind of thing that shows up as "it
+    /// mostly doesn't crash" rather than "it doesn't crash". The request is
+    /// still recorded either way, and `didLoad` replays it once there is
+    /// somewhere to attach it.
     private func airUpdateGlass(image: UIImage?, isDark: Bool, transition: ContainedViewLayoutTransition) {
+        self.airGlassRequestedImage = image
+        self.airGlassRequestedIsDark = isDark
+
+        guard let imageView = self.imageView else {
+            return
+        }
+
         guard airMessageGlassEnabled, let image else {
             if let glassView = self.airGlassView {
                 glassView.removeFromSuperview()
                 self.airGlassView = nil
             }
-            self.imageView?.alpha = 1.0
+            imageView.alpha = 1.0
             return
         }
 
@@ -368,17 +404,13 @@ public class ChatMessageBackground: ASDisplayNode {
         } else {
             glassView = AIRBubbleGlassView()
             self.airGlassView = glassView
-            if let imageView = self.imageView {
-                self.view.insertSubview(glassView, belowSubview: imageView)
-            } else {
-                self.view.addSubview(glassView)
-            }
+            self.view.insertSubview(glassView, belowSubview: imageView)
         }
 
         let size = self.imageFrame?.size ?? self.bounds.size
         glassView.frame = CGRect(origin: self.imageFrame?.origin ?? CGPoint(), size: size)
         glassView.update(size: size, image: image, isDark: isDark, transition: transition)
-        self.imageView?.alpha = 0.25
+        imageView.alpha = 0.25
     }
 
     public func animateFrom(sourceView: UIView, transition: CombinedTransition) {

@@ -30,9 +30,15 @@ public struct AIRListRow {
         case action(action: () -> Void)
         /// A percentage track with the value on the right of the title.
         case slider(value: Int, range: ClosedRange<Int>, updated: (Int) -> Void)
-        /// The live bottom bar. Carries no value of its own: it renders from
-        /// the same settings the real bar does.
-        case tabBarPreview
+        /// The live bottom bar. `signature` is whatever the caller's preview
+        /// actually renders from (which tabs are hidden, height, width), so
+        /// the diff below can tell "this preview would draw the same pixels"
+        /// from "this preview needs to redraw" instead of assuming the
+        /// latter always — which was forcing a full teardown and rebuild of
+        /// the embedded TabBarComponent on every unrelated settings change,
+        /// including ones fired synchronously while a slider in this same
+        /// row was still being dragged.
+        case tabBarPreview(signature: String)
     }
 
     public let id: Int32
@@ -58,11 +64,8 @@ public struct AIRListRow {
             return ""
         case let .slider(value, _, _):
             return "\(value)"
-        case .tabBarPreview:
-            // Re-rendered on every settings change anyway, and its own contents
-            // depend on settings this row does not carry. Never diff-equal, so
-            // it always redraws — which is the point of a live preview.
-            return UUID().uuidString
+        case let .tabBarPreview(signature):
+            return signature
         }
     }
 }

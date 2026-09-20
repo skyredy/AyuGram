@@ -13,6 +13,7 @@ swift_library(
         "//submodules/AccountContext",
         "//submodules/AccountUtils",
         "//submodules/AiraGramUI",
+        "//submodules/AiraGramGlass",
         "//submodules/AyuGramUI",
         "//submodules/ActionSheetPeerItem",
         "//submodules/ActivityIndicator",

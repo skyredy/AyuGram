@@ -4,9 +4,11 @@ import AsyncDisplayKit
 import ContextUI
 import AnimationUI
 import Display
+import TelegramCore
 import TelegramPresentationData
 import ComponentFlow
 import LottieComponent
+import AiraGramGlass
 
 enum PeerInfoHeaderButtonKey: Hashable {
     case message
@@ -53,7 +55,13 @@ final class PeerInfoHeaderButtonNode: HighlightableButtonNode {
     
     let backgroundContainerView: UIView
     let backgroundView: UIView
-    
+    // AIR: "Новый вид профиля" — a per-button glass circle, drawn above the
+    // stock shared blur rather than replacing its masking machinery in
+    // PeerInfoHeaderNode. Harmless overlap when both are visible (one blur
+    // pass under another), and it keeps this file the only one that has to
+    // know about the redesign.
+    private var airGlassView: AIRGlassPanelView?
+
     init(key: PeerInfoHeaderButtonKey, action: @escaping (PeerInfoHeaderButtonNode, ContextGesture?) -> Void) {
         self.key = key
         self.action = action
@@ -92,6 +100,13 @@ final class PeerInfoHeaderButtonNode: HighlightableButtonNode {
         self.contentNode.addSubnode(self.iconNode)
         self.addSubnode(self.containerNode)
         self.contentNode.addSubnode(self.textNode)
+
+        // AIR: behind everything, hidden until `update()` turns it on.
+        let airGlassView = AIRGlassPanelView()
+        airGlassView.isUserInteractionEnabled = false
+        airGlassView.isHidden = true
+        self.airGlassView = airGlassView
+        self.view.insertSubview(airGlassView, at: 0)
         
         self.highligthedChanged = { [weak self] highlighted in
             if let strongSelf = self {
@@ -132,8 +147,9 @@ final class PeerInfoHeaderButtonNode: HighlightableButtonNode {
         let iconUpdated = self.icon != icon
         let isActiveUpdated = self.isActive != isActive
         self.isActive = isActive
-        
-        let iconSize = CGSize(width: 40.0, height: 40.0)
+
+        // AIR: "Новый вид профиля" — a little larger, per the ask.
+        let iconSize = AIRExperimentalUI.newProfileViewActive ? CGSize(width: 44.0, height: 44.0) : CGSize(width: 40.0, height: 40.0)
         
         if themeUpdated || iconUpdated {
             self.theme = presentationData.theme
@@ -256,30 +272,75 @@ final class PeerInfoHeaderButtonNode: HighlightableButtonNode {
             alphaTransition.updateAlpha(node: self.textNode, alpha: isActive ? 1.0 : 0.3)
         }
         
-        self.textNode.attributedText = NSAttributedString(string: text.lowercased(), font: Font.regular(11.0), textColor: .white)
+        // AIR: "Новый вид профиля" drops the label entirely — an empty string
+        // measures to zero size, which is what lets the icon below recentre
+        // itself in the full slot height instead of sharing it with text.
+        let airNewProfileView = AIRExperimentalUI.newProfileViewActive
+        // Glass fill is its own, live-toggled question from "Liquid Glass →
+        // Профиль" — it applies to the stock rectangular button too, not just
+        // the circular new-profile-view one, which is why it is read
+        // separately from `airNewProfileView` rather than folded into it.
+        let airButtonGlassEnabled = airNewProfileView || AIRSettingsManager.shared.glass.profile
+        self.textNode.attributedText = airNewProfileView ? nil : NSAttributedString(string: text.lowercased(), font: Font.regular(11.0), textColor: .white)
         self.accessibilityLabel = text
-        let titleSize = self.textNode.updateLayout(CGSize(width: 120.0, height: .greatestFiniteMagnitude))
-        
+        let titleSize = airNewProfileView ? CGSize.zero : self.textNode.updateLayout(CGSize(width: 120.0, height: .greatestFiniteMagnitude))
+
         transition.updateFrame(node: self.containerNode, frame: CGRect(origin: CGPoint(), size: size))
         transition.updateFrame(node: self.contentNode, frame: CGRect(origin: CGPoint(x: 0.0, y: size.height * 0.5 * (1.0 - fraction)), size: size))
         transition.updateAlpha(node: self.contentNode, alpha: fraction)
-        
+
         let backgroundY: CGFloat = size.height * (1.0 - fraction)
         let backgroundFrame = CGRect(origin: CGPoint(x: 0.0, y: backgroundY), size: CGSize(width: size.width, height: max(0.0, size.height - backgroundY)))
         //transition.updateFrame(node: self.backgroundNode, frame: backgroundFrame)
         transition.updateFrame(view: self.backgroundView, frame: backgroundFrame)
-        
+
         transition.updateSublayerTransformScale(node: self.contentNode, scale: 1.0 * fraction + 0.001 * (1.0 - fraction))
-        
-        transition.updateCornerRadius(layer: self.backgroundView.layer, cornerRadius: min(16.0, backgroundFrame.height * 0.5))
+
+        let iconY: CGFloat
+        if airNewProfileView {
+            // A fully round circle, sized off the slot's own height (58pt
+            // stock) rather than its width, which still varies with how many
+            // buttons are showing — a fixed diameter reads as a deliberate
+            // shape regardless of button count, where stretching to the slot
+            // width would not.
+            let diameter = min(size.width - 4.0, backgroundFrame.height - 2.0)
+            let circleFrame = CGRect(
+                x: floor((size.width - diameter) / 2.0),
+                y: backgroundFrame.minY + floor((backgroundFrame.height - diameter) / 2.0),
+                width: diameter,
+                height: diameter
+            )
+            transition.updateFrame(view: self.backgroundView, frame: circleFrame)
+            transition.updateCornerRadius(layer: self.backgroundView.layer, cornerRadius: diameter / 2.0)
+
+            if airButtonGlassEnabled, let airGlassView = self.airGlassView {
+                airGlassView.isHidden = false
+                transition.updateFrame(view: airGlassView, frame: circleFrame)
+                airGlassView.update(size: circleFrame.size, cornerRadius: diameter / 2.0, isDark: true, tint: .clear, transition: transition)
+            } else {
+                self.airGlassView?.isHidden = true
+            }
+            iconY = floor((size.height - iconSize.height) / 2.0)
+        } else {
+            let cornerRadius = min(16.0, backgroundFrame.height * 0.5)
+            transition.updateCornerRadius(layer: self.backgroundView.layer, cornerRadius: cornerRadius)
+            if airButtonGlassEnabled, let airGlassView = self.airGlassView {
+                airGlassView.isHidden = false
+                transition.updateFrame(view: airGlassView, frame: backgroundFrame)
+                airGlassView.update(size: backgroundFrame.size, cornerRadius: cornerRadius, isDark: true, tint: .clear, transition: transition)
+            } else {
+                self.airGlassView?.isHidden = true
+            }
+            iconY = 1.0
+        }
         //self.backgroundNode.update(size: backgroundFrame.size, cornerRadius: min(11.0, backgroundFrame.height * 0.5), transition: transition)
         //self.backgroundNode.updateColor(color: backgroundColor, transition: transition)
-        transition.updateFrame(node: self.iconNode, frame: CGRect(origin: CGPoint(x: floor((size.width - iconSize.width) / 2.0), y: 1.0), size: iconSize))
+        transition.updateFrame(node: self.iconNode, frame: CGRect(origin: CGPoint(x: floor((size.width - iconSize.width) / 2.0), y: iconY), size: iconSize))
         if let animatedIconView = self.animatedIcon?.view {
-            transition.updateFrame(view: animatedIconView, frame: CGRect(origin: CGPoint(x: floor((size.width - iconSize.width) / 2.0), y: 1.0), size: iconSize))
+            transition.updateFrame(view: animatedIconView, frame: CGRect(origin: CGPoint(x: floor((size.width - iconSize.width) / 2.0), y: iconY), size: iconSize))
         }
         transition.updateFrameAdditiveToCenter(node: self.textNode, frame: CGRect(origin: CGPoint(x: floor((size.width - titleSize.width) / 2.0), y: size.height - titleSize.height - 9.0), size: titleSize))
-        
+
         self.referenceNode.frame = self.containerNode.bounds
     }
 }

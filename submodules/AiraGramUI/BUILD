@@ -17,7 +17,6 @@ swift_library(
         "//submodules/TelegramUI/Components/TabBarComponent",
         "//submodules/ComponentFlow:ComponentFlow",
         "//submodules/ItemListUI:ItemListUI",
-        "//submodules/LegacyComponents:LegacyComponents",
         "//submodules/MergeLists:MergeLists",
         "//submodules/PresentationDataUtils:PresentationDataUtils",
         "//submodules/SSignalKit/SwiftSignalKit:SwiftSignalKit",
