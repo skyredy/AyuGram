@@ -75,7 +75,7 @@ silently reverts upstream's change for that region.
 ### 3. Verify the hooks survived
 
 ```bash
-python3 tools/ayg-upstream/ayg_hooks.py check
+python3 tools/ayg-upstream/fork_hooks.py check
 ```
 
 This is the step that catches what neither git nor the compiler can. Our hooks
@@ -87,7 +87,7 @@ and the feature is simply dead. `hooks.json` records all **347 references across
 Once the diff is reviewed and correct, re-record it:
 
 ```bash
-python3 tools/ayg-upstream/ayg_hooks.py snapshot
+python3 tools/ayg-upstream/fork_hooks.py snapshot
 ```
 
 ### 4. Re-apply the generated rebranding

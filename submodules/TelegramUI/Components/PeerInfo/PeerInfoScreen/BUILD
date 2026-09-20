@@ -12,6 +12,7 @@ swift_library(
     deps = [
         "//submodules/AccountContext",
         "//submodules/AccountUtils",
+        "//submodules/AiraGramUI",
         "//submodules/AyuGramUI",
         "//submodules/ActionSheetPeerItem",
         "//submodules/ActivityIndicator",

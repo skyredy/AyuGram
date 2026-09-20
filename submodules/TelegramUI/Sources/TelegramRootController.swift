@@ -3,6 +3,7 @@ import UIKit
 import Display
 import AsyncDisplayKit
 import TelegramCore
+import AiraGramUI
 import AyuGramUI
 import SwiftSignalKit
 import TelegramPresentationData
@@ -210,6 +211,9 @@ public final class TelegramRootController: NavigationController, TelegramRootCon
         // AYG: and keep AyuGram's own strings on Telegram's language rather than the
         // system's — the two differ whenever the user has set a language in-app.
         aygObserveStringsLanguage(context: self.context)
+        // AIR: the AiraGram section keeps its own string table and needs the same
+        // subscription for the same reason.
+        airObserveStringsLanguage(context: self.context)
 
         let tabBarController = TabBarControllerImpl(theme: self.presentationData.theme, strings: self.presentationData.strings)
         tabBarController.navigationPresentation = .master

@@ -12,12 +12,17 @@ import ItemListPeerItem
 import DeviceAccess
 import TelegramStringFormatting
 import PeerNameColorItem
+import AiraGramUI
 import AyuGramUI
 
 enum SettingsSection: Int, CaseIterable {
     case edit
     case phone
     case accounts
+    // AIR: standalone section holding the AiraGram entry point, directly above
+    // the AyuGram one. Its own section rather than sharing AyuGram's, so the
+    // two fork screens read as two separate things.
+    case airagram
     // AYG: standalone section holding the AyuGram entry point. First of the
     // navigational rows, directly above My Profile.
     case ayugram
@@ -253,6 +258,11 @@ func settingsItems(data: PeerInfoScreenData?, context: AccountContext, presentat
         interaction.openSettings(.language)
     }))
     
+    // AIR: entry point into the AiraGram settings screen.
+    items[.airagram]!.append(PeerInfoScreenDisclosureItem(id: 0, text: airSettingsRowTitle, icon: PresentationResourcesSettings.airagram, action: {
+        interaction.openSettings(.airagram)
+    }))
+
     // AYG: entry point into the AyuGram settings screen.
     items[.ayugram]!.append(PeerInfoScreenDisclosureItem(id: 0, text: aygSettingsRowTitle, icon: PresentationResourcesSettings.ayugram, action: {
         interaction.openSettings(.ayugram)

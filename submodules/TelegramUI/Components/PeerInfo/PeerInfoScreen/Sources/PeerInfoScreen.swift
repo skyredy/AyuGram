@@ -188,6 +188,8 @@ enum PeerInfoSettingsSection {
     case premiumManagement
     case stars
     case ton
+    // AIR: root screen of the AiraGram section in Settings.
+    case airagram
     // AYG: root screen of the AyuGram section in Settings.
     case ayugram
 }

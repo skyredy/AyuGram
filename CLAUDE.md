@@ -67,6 +67,36 @@ The sim ignores code signing, so the unsigned `Telegram_archive-root` bundle run
 - External code is located in `third-party/`
 - App-side unit tests are minimal: the first `ios_unit_test` (`//submodules/TextFormat:TextFormatTests`) was added 2026-06-19 (run via `Make.py test --target` — see Build). The RichTextEditor SwiftPM package keeps its own suite (`swift test` / `Scripts/iostest.sh`). Most modules still have no tests.
 
+## Fork layers: AyuGram (`AYG*`) and AiraGram (`AIR*`)
+
+Two fork feature layers live side by side, each with its own Settings section
+(AiraGram's row sits directly above AyuGram's). They never share state or
+strings: `AYGSharedDefaults.store` is one App Group `UserDefaults` suite, and
+the two layers namespace their keys `AYG.` and `AIR.`.
+
+| | AyuGram | AiraGram |
+|---|---|---|
+| UI module | `submodules/AyuGramUI` | `submodules/AiraGramUI` |
+| Core state | `submodules/TelegramCore/Sources/AYG*/` | `submodules/TelegramCore/Sources/AIRSettings/` |
+| Strings | Crowdin JSON, `aygString` | in-source table, `airString` |
+| Icons | rendered from the Android APK | SF Symbols, via `airSymbolImage` |
+| Settings entry | `aygSettingsController` | `airSettingsController` |
+
+**The load-bearing rule for both: logic lives in fork-owned files, and files
+Telegram owns get only a call.** A fork-owned file is one under
+`submodules/AyuGramUI/`, `submodules/AiraGramUI/`, or whose name starts with
+`AYG`/`AIR`. Upstream will never touch those, so a merge cannot break them.
+Today that is 1900 lines spread across 98 upstream files against ~29 000 lines
+of our own, which is why a full Telegram release merges with three conflicts.
+Restructuring an upstream function, reformatting its whitespace or deleting one
+of its files all trade cheap merges for expensive ones.
+
+`tools/ayg-upstream/fork_hooks.py` records every one of those call sites and
+fails CI when one disappears — the case neither git nor the compiler catches,
+since the hook's *definition* stays valid while its *call* is gone. See
+[`docs/AYGUpstreamUpdate.md`](docs/AYGUpstreamUpdate.md) for the full update
+procedure and the vendor-branch layout it depends on.
+
 ## RichTextEditor editor & the `ChatInputContent` composer
 
 A from-scratch WYSIWYG rich-text editor (`submodules/TelegramUI/Components/RichTextEditor`) is the native chat-composer backend — by default a **dual-field switch** (the composer uses the legacy input and latches to the native editor only when content becomes legacy-non-representable); the `forceNewTextInput` experimental flag (Debug Settings ▸ "Force Text Field v2") forces always-native. (This inverted the earlier default+`forceLegacyTextInput`-opt-out scheme.) `ChatInputContent` (a TelegramCore-native value model) replaced `NSAttributedString` as the composer currency. The app-side integration — the model and its load-bearing invariants, composer ↔ editor wiring, the formatting-menu / custom-emoji-mention-date / code-block / inline-media round-trips, rich-message send / edit / pending-display, the long-press-Send send-options preview, and draft persistence (local, cross-device media sync, re-login restore) — lives in [`docs/richtext-composer.md`](docs/richtext-composer.md). Editor internals (the TextKit seam, layout) are the editor's own `submodules/TelegramUI/Components/RichTextEditor/CLAUDE.md`; message **rendering** is [`docs/instantpage-richtext.md`](docs/instantpage-richtext.md).

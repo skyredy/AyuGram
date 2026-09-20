@@ -190,6 +190,7 @@ swift_library(
         "//third-party/opus:opus",
         "//submodules/ShareItems:ShareItems",
         "//submodules/ShareItems/Impl:ShareItemsImpl",
+        "//submodules/AiraGramUI:AiraGramUI",
         "//submodules/AyuGramUI:AyuGramUI",
         "//submodules/SettingsUI:SettingsUI",
         "//submodules/UrlHandling:UrlHandling",

@@ -5,7 +5,12 @@ import AppBundle
 
 private let gradientImage = UIImage(bundleImageName: "Item List/Icons/Gradient")
 private let backdropImage = UIImage(bundleImageName: "Item List/Icons/Backdrop")
-public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgroundColors: [UIColor]? = nil) -> UIImage? {
+// AIR: `customImage` lets a caller hand in an already-rendered glyph instead of
+// naming one in the bundle — AiraGram's rows use SF Symbols, which have no
+// bundle name. Additive and defaulted, so every upstream call site is unchanged;
+// the alternative was copying the 40 lines of tile drawing below into our own
+// file, where it would silently drift the moment upstream restyles the tiles.
+public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgroundColors: [UIColor]? = nil, customImage: UIImage? = nil) -> UIImage? {
     return generateImage(CGSize(width: 30.0, height: 30.0), contextGenerator: { size, context in
         let bounds = CGRect(origin: CGPoint(), size: size)
         context.clear(bounds)
@@ -31,7 +36,7 @@ public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgro
                         
             context.setBlendMode(.normal)
             
-            if let image = UIImage(bundleImageName: name), let maskImage = image.cgImage {
+            if let image = customImage ?? UIImage(bundleImageName: name), let maskImage = image.cgImage {
                 let imageSize = CGSize(width: image.size.width * scaleFactor, height: image.size.height * scaleFactor)
                 let imageRect = CGRect(origin: CGPoint(x: (bounds.width - imageSize.width) * 0.5, y: (bounds.height - imageSize.height) * 0.5), size: imageSize)
                 
@@ -55,7 +60,7 @@ public func renderSettingsIcon(name: String, scaleFactor: CGFloat = 1.0, backgro
             context.fill(CGRect(origin: .zero, size: size))
             context.restoreGState()
         } else {
-            if let image = UIImage(bundleImageName: name), let cgImage = image.cgImage {
+            if let image = customImage ?? UIImage(bundleImageName: name), let cgImage = image.cgImage {
                 let imageSize: CGSize
                 if scaleFactor == 1.0 {
                     imageSize = size

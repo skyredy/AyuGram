@@ -15,6 +15,7 @@ import TelegramPresentationData
 import PresentationDataUtils
 import PasswordSetupUI
 import InstantPageCache
+import AiraGramUI
 import AyuGramUI
 
 extension PeerInfoScreenNode {
@@ -272,6 +273,8 @@ extension PeerInfoScreenNode {
             self.interaction.editingOpenNameColorSetup()
         case .powerSaving:
             push(energySavingSettingsScreen(context: self.context))
+        case .airagram:
+            push(airSettingsController(context: self.context))
         case .ayugram:
             push(aygSettingsController(context: self.context))
         case .businessSetup:

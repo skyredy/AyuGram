@@ -25,8 +25,8 @@ jobs:
       # Telegram owns. A merge of a new Telegram release can drop one cleanly and
       # still produce a file that compiles, leaving the feature dead. This is the
       # only check that notices. See docs/AYGUpstreamUpdate.md.
-      - name: Verify AyuGram hook inventory
-        run: python3 tools/ayg-upstream/ayg_hooks.py check
+      - name: Verify fork hook inventory
+        run: python3 tools/ayg-upstream/fork_hooks.py check
 
       # Bazel's disk cache lives outside the checkout so it survives across runs/branches.
       # The restore key is intentionally unique (never matches) so it always falls through to
