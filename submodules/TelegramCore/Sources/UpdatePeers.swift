@@ -452,7 +452,12 @@ func updatePeerPresences(transaction: Transaction, accountPeerId: PeerId, peerPr
     }
         
     parsedPresences.removeValue(forKey: accountPeerId)
-        
+
+    // AIR: "Время последнего захода". Telegram never sends a last-seen time for
+    // someone whose privacy is "recently", so the moment is witnessed here
+    // instead — this is where the client is told who is active.
+    AIRLastSeenTracker.shared.recordActive(presences: parsedPresences, now: Int32(Date().timeIntervalSince1970))
+
     transaction.updatePeerPresencesInternal(presences: parsedPresences, merge: { previous, updated in
         if let previous = previous as? TelegramUserPresence, let updated = updated as? TelegramUserPresence, previous.lastActivity != updated.lastActivity {
             return TelegramUserPresence(status: updated.status, lastActivity: max(previous.lastActivity, updated.lastActivity))
@@ -479,7 +484,12 @@ func updatePeerPresencesClean(transaction: Transaction, accountPeerId: PeerId, p
     if parsedPresences[accountPeerId] != nil {
         parsedPresences.removeValue(forKey: accountPeerId)
     }
-    
+
+    // AIR: "Время последнего захода". Telegram never sends a last-seen time for
+    // someone whose privacy is "recently", so the moment is witnessed here
+    // instead — this is where the client is told who is active.
+    AIRLastSeenTracker.shared.recordActive(presences: parsedPresences, now: Int32(Date().timeIntervalSince1970))
+
     transaction.updatePeerPresencesInternal(presences: parsedPresences, merge: { previous, updated in
         if let previous = previous as? TelegramUserPresence, let updated = updated as? TelegramUserPresence, previous.lastActivity != updated.lastActivity {
             return TelegramUserPresence(status: updated.status, lastActivity: max(previous.lastActivity, updated.lastActivity))
@@ -493,6 +503,11 @@ func updatePeerPresenceLastActivities(transaction: Transaction, accountPeerId: P
     if activities[accountPeerId] != nil {
         activities.removeValue(forKey: accountPeerId)
     }
+    // AIR: the strongest signal there is — the server just told us these people
+    // did something at these exact moments. Batched, because this runs inside a
+    // transaction and the map is serialised once per call.
+    AIRLastSeenTracker.shared.recordActivities(activities)
+
     for (peerId, timestamp) in activities {
         transaction.updatePeerPresenceInternal(peerId: peerId, update: { previous in
             if let previous = previous as? TelegramUserPresence, previous.lastActivity < timestamp {

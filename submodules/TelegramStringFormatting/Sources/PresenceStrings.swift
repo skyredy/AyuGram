@@ -571,7 +571,11 @@ public func stringForStoryActivityTimestamp(strings: PresentationStrings, dateTi
     }
 }
 
-public func stringAndActivityForUserPresence(strings: PresentationStrings, dateTimeFormat: PresentationDateTimeFormat, presence: EnginePeer.Presence, relativeTo timestamp: Int32, expanded: Bool = false) -> (String, Bool) {
+// AIR: `peerId` is optional and defaults to nil so that every existing caller
+// is unchanged. It is passed only by the three screens where the extra time is
+// worth the width — the profile subtitle and the two chat headers. In a
+// contact-list row there is no room for it.
+public func stringAndActivityForUserPresence(strings: PresentationStrings, dateTimeFormat: PresentationDateTimeFormat, presence: EnginePeer.Presence, relativeTo timestamp: Int32, expanded: Bool = false, peerId: EnginePeer.Id? = nil) -> (String, Bool) {
     switch presence.status {
     case let .present(statusTimestamp):
         if statusTimestamp >= timestamp {
@@ -620,7 +624,11 @@ public func stringAndActivityForUserPresence(strings: PresentationStrings, dateT
         if activeUntil >= timestamp {
             return (strings.Presence_online, true)
         } else {
-            return (strings.LastSeen_Lately, false)
+            // AIR: "Время последнего захода". The server withholds a last-seen
+            // time for this privacy setting, so what is appended here is a
+            // moment the client itself witnessed. Nothing is appended when
+            // nothing was witnessed — see AIRLastSeenTracker.
+            return (airLastSeenSuffixed(strings.LastSeen_Lately, peerId: peerId, strings: strings, dateTimeFormat: dateTimeFormat, relativeTo: timestamp), false)
         }
     case .lastWeek:
         return (strings.LastSeen_WithinAWeek, false)
