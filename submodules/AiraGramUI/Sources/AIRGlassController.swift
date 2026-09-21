@@ -15,7 +15,9 @@ import AccountContext
 // back to a blur, which is a visible effect, not a no-op — a switch that did
 // nothing would deserve to be disabled, and this one does not.
 public func airGlassController(context: AccountContext) -> ViewController {
-    return airListController(context: context, title: airString("CategoryGlass"), sections: { _ in
+    var pushImpl: ((ViewController) -> Void)?
+
+    let controller = airListController(context: context, title: airString("CategoryGlass"), sections: { _ in
         let settings = AIRSettingsManager.shared.glass
         var sections: [AIRListSection] = [
             AIRListSection(id: 0, footer: airString("GlassMessagesInfo"), rows: [
@@ -51,8 +53,17 @@ public func airGlassController(context: AccountContext) -> ViewController {
             header: airString("ExperimentalHeader").uppercased(),
             footer: airString("NewProfileViewInfo"),
             rows: [
+                // AIR: "Обои" fills the same backdrop slot behind a profile
+                // that this draws a blurred avatar into, so turning one on
+                // turns the other off — there is nowhere for both to go at
+                // once.
                 AIRListRow(id: 0, title: airString("NewProfileView"), content: .toggle(value: settings.newProfileView, updated: { value in
-                    AIRSettingsManager.shared.updateGlass { $0.newProfileView = value }
+                    AIRSettingsManager.shared.updateGlass { glass in
+                        glass.newProfileView = value
+                        if value {
+                            glass.wallpaper = false
+                        }
+                    }
                 }))
             ]
         ))
@@ -69,8 +80,38 @@ public func airGlassController(context: AccountContext) -> ViewController {
             sections.append(AIRListSection(id: 6, footer: airString("RestartNeeded"), rows: []))
         }
 
+        // AIR: "Обои" — applies live, unlike the two redesign switches above,
+        // so no restart notice for this one.
+        sections.append(AIRListSection(
+            id: 7,
+            footer: airString("WallpaperInfo"),
+            rows: [
+                AIRListRow(id: 0, title: airString("Wallpaper"), content: .toggle(value: settings.wallpaper, updated: { value in
+                    AIRSettingsManager.shared.updateGlass { glass in
+                        glass.wallpaper = value
+                        if value {
+                            glass.newProfileView = false
+                        }
+                    }
+                })),
+                AIRListRow(
+                    id: 1,
+                    title: airString("WallpaperConfigure"),
+                    content: .disclosure(value: "", action: {
+                        pushImpl?(airWallpaperController(context: context))
+                    }),
+                    enabled: settings.wallpaper
+                )
+            ]
+        ))
+
         return sections
     })
+
+    pushImpl = { [weak controller] c in
+        controller?.push(c)
+    }
+    return controller
 }
 
 /// Whether Apple's own glass material exists on this system.

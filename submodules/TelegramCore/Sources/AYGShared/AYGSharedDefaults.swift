@@ -35,6 +35,13 @@ public enum AYGSharedDefaults {
         return shared
     }()
 
+    /// The App Group's file container — `nil` under the same condition `store`
+    /// falls back to `.standard` for. AIR profile wallpapers live under here
+    /// (`AIRProfileWallpaperStore`), rather than in the app's own sandbox,
+    /// purely for consistency with everything else this fork persists; nothing
+    /// today actually needs an extension to see a wallpaper file.
+    public static let containerURL: URL? = AYGRuntimeEnvironment.appGroupContainerURL
+
     /// Copies existing `AYG.*` settings out of `UserDefaults.standard` on first
     /// launch after the switch, so nobody's Ghost Mode or anti-delete
     /// configuration silently resets.

@@ -3,6 +3,7 @@ import UIKit
 import Display
 import AsyncDisplayKit
 import ContextUI
+import TelegramCore
 import TelegramPresentationData
 import AiraGramGlass
 
@@ -140,7 +141,19 @@ private final class AIRMessageMenuIconRowNode: ASDisplayNode, ContextMenuCustomN
                 guard let self else {
                     return
                 }
-                item.action?(self.getController(), self.actionSelected)
+                // `item.action` is stored as `((ContextMenuActionItem.Action) ->
+                // Void)?` regardless of which initializer built the item — the
+                // simpler two-closure form every call site in
+                // ChatInterfaceStateContextMenus.swift uses is a convenience
+                // init that wraps into this on construction. `updateAction` is
+                // for a row that can rewrite its own text/badge after being
+                // tapped (a stock feature these plain icon buttons do not use),
+                // so a no-op is correct here, not a placeholder.
+                item.action?(ContextMenuActionItem.Action(
+                    controller: self.getController(),
+                    dismissWithResult: self.actionSelected,
+                    updateAction: { _, _ in }
+                ))
             }
         }
     }

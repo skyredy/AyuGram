@@ -223,6 +223,10 @@ private func airListEntries(_ sections: [AIRListSection]) -> [AIRListEntry] {
 public func airSettingsChangedSignal() -> Signal<Void, NoError> {
     return Signal { subscriber in
         subscriber.putNext(Void())
+        // Two sources: the plain settings store, and the wallpaper store —
+        // which is files on disk, not a field in `AIRSettingsManager`, but
+        // "Обои"'s own row still needs to know when a picture was set or
+        // removed so its "Установлено"/"Не задано" label stays honest.
         let observer = NotificationCenter.default.addObserver(
             forName: AIRSettingsManager.settingsChangedNotification,
             object: nil,
@@ -230,8 +234,16 @@ public func airSettingsChangedSignal() -> Signal<Void, NoError> {
         ) { _ in
             subscriber.putNext(Void())
         }
+        let wallpaperObserver = NotificationCenter.default.addObserver(
+            forName: AIRProfileWallpaperStore.updatedNotification,
+            object: nil,
+            queue: OperationQueue.main
+        ) { _ in
+            subscriber.putNext(Void())
+        }
         return ActionDisposable {
             NotificationCenter.default.removeObserver(observer)
+            NotificationCenter.default.removeObserver(wallpaperObserver)
         }
     }
 }

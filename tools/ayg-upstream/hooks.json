@@ -264,13 +264,15 @@
       "AIRChatCreationDateStore": 1,
       "AIRProfileBackdrop": 4,
       "AIRProfileBackdropView": 1,
+      "AIRProfileWallpaperStore": 1,
       "AIRSettingsManager": 1,
       "airBackdropDisposable": 4,
       "airBackdropRepresentation": 4,
       "airBackdropView": 5,
       "airChatCreationDateObserver": 5,
       "airFactsObserver": 5,
-      "airUpdateBackdrop": 2,
+      "airUpdateBackdrop": 5,
+      "airWallpaperObserver": 5,
       "airagram": 1,
       "aygSuggestGhostModeBeforeStory": 1
     },
@@ -278,7 +280,9 @@
       "aygSuggestGhostModeBeforeStory": 1
     },
     "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenPerformButtonAction.swift": {
+      "AIRPeerInfoMoreMenu": 1,
       "AYGPeerInfoMoreMenu": 1,
+      "airInsertWallpaperMenuItem": 1,
       "aygInsertAyuGramMenuItem": 1
     },
     "submodules/TelegramUI/Components/PeerInfo/PeerInfoScreen/Sources/PeerInfoScreenSettingsActions.swift": {
