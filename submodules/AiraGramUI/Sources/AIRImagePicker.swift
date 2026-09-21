@@ -2,13 +2,17 @@ import Foundation
 import UIKit
 import PhotosUI
 
-// AIR: "просто фото из галереи" — a single-image `PHPickerViewController`,
-// nothing more. PHPicker rather than the classic `UIImagePickerController`
-// because it runs out-of-process: iOS hands the app only the one photo
-// actually chosen, with no photo-library permission prompt at all, which is
-// the right privacy shape for "pick one picture" and needs no Info.plist
-// usage-description entry to carry.
-final class AIRImagePickerPresenter: NSObject, PHPickerViewControllerDelegate {
+// AIR: "просто фото из галереи" — a single-image picker, nothing more.
+//
+// `PHPickerViewController` on iOS 14+: it runs out-of-process, so iOS hands
+// the app only the one photo actually chosen, with no photo-library
+// permission prompt at all — the right privacy shape for "pick one picture",
+// and it needs no Info.plist usage-description entry to carry. Below iOS 14
+// (this app's floor is 13) it does not exist, so that version falls back to
+// the classic `UIImagePickerController`, which does prompt for photo-library
+// access — the app already carries `NSPhotoLibraryUsageDescription` for its
+// other photo pickers, so nothing new to add there.
+final class AIRImagePickerPresenter: NSObject {
     private var completion: ((UIImage?) -> Void)?
     /// Holds itself alive for the duration of the pick — nothing else keeps
     /// a reference to a presenter that exists only to answer one delegate
@@ -20,14 +24,30 @@ final class AIRImagePickerPresenter: NSObject, PHPickerViewControllerDelegate {
         presenter.completion = completion
         Self.active = presenter
 
-        var configuration = PHPickerConfiguration()
-        configuration.filter = .images
-        configuration.selectionLimit = 1
-        let picker = PHPickerViewController(configuration: configuration)
-        picker.delegate = presenter
-        controller.present(picker, animated: true)
+        if #available(iOS 14.0, *) {
+            var configuration = PHPickerConfiguration()
+            configuration.filter = .images
+            configuration.selectionLimit = 1
+            let picker = PHPickerViewController(configuration: configuration)
+            picker.delegate = presenter
+            controller.present(picker, animated: true)
+        } else {
+            let picker = UIImagePickerController()
+            picker.sourceType = .photoLibrary
+            picker.delegate = presenter
+            controller.present(picker, animated: true)
+        }
     }
 
+    private func finish(with image: UIImage?) {
+        self.completion?(image)
+        self.completion = nil
+        Self.active = nil
+    }
+}
+
+@available(iOS 14.0, *)
+extension AIRImagePickerPresenter: PHPickerViewControllerDelegate {
     func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
         guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else {
@@ -40,10 +60,16 @@ final class AIRImagePickerPresenter: NSObject, PHPickerViewControllerDelegate {
             }
         }
     }
+}
 
-    private func finish(with image: UIImage?) {
-        self.completion?(image)
-        self.completion = nil
-        Self.active = nil
+extension AIRImagePickerPresenter: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
+    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+        picker.dismiss(animated: true)
+        self.finish(with: info[.originalImage] as? UIImage)
+    }
+
+    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+        picker.dismiss(animated: true)
+        self.finish(with: nil)
     }
 }
