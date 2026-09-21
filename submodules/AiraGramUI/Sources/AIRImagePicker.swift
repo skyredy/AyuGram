@@ -12,14 +12,14 @@ import PhotosUI
 // the classic `UIImagePickerController`, which does prompt for photo-library
 // access — the app already carries `NSPhotoLibraryUsageDescription` for its
 // other photo pickers, so nothing new to add there.
-final class AIRImagePickerPresenter: NSObject {
+public final class AIRImagePickerPresenter: NSObject {
     private var completion: ((UIImage?) -> Void)?
     /// Holds itself alive for the duration of the pick — nothing else keeps
     /// a reference to a presenter that exists only to answer one delegate
     /// callback.
     private static var active: AIRImagePickerPresenter?
 
-    static func present(from controller: UIViewController, completion: @escaping (UIImage?) -> Void) {
+    public static func present(from controller: UIViewController, completion: @escaping (UIImage?) -> Void) {
         let presenter = AIRImagePickerPresenter()
         presenter.completion = completion
         Self.active = presenter
