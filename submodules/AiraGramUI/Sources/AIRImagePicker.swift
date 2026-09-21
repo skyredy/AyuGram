@@ -48,7 +48,7 @@ public final class AIRImagePickerPresenter: NSObject {
 
 @available(iOS 14.0, *)
 extension AIRImagePickerPresenter: PHPickerViewControllerDelegate {
-    func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
+    public func picker(_ picker: PHPickerViewController, didFinishPicking results: [PHPickerResult]) {
         picker.dismiss(animated: true)
         guard let provider = results.first?.itemProvider, provider.canLoadObject(ofClass: UIImage.self) else {
             self.finish(with: nil)
@@ -63,12 +63,12 @@ extension AIRImagePickerPresenter: PHPickerViewControllerDelegate {
 }
 
 extension AIRImagePickerPresenter: UIImagePickerControllerDelegate, UINavigationControllerDelegate {
-    func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
+    public func imagePickerController(_ picker: UIImagePickerController, didFinishPickingMediaWithInfo info: [UIImagePickerController.InfoKey: Any]) {
         picker.dismiss(animated: true)
         self.finish(with: info[.originalImage] as? UIImage)
     }
 
-    func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
+    public func imagePickerControllerDidCancel(_ picker: UIImagePickerController) {
         picker.dismiss(animated: true)
         self.finish(with: nil)
     }
