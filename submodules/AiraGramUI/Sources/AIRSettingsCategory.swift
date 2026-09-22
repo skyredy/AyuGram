@@ -4,18 +4,18 @@ import Display
 import TelegramPresentationData
 import AppBundle
 
-// AIR: the four categories of the AiraGram screen and the four links under them.
+// AIR: the categories of the AiraGram screen and the four links under them.
 //
 // Layout mirrors the AyuGram screen exactly — a centred header, a CATEGORIES
 // block, a LINKS block — because the two sit next to each other in Settings and
 // a user moving between them should not have to relearn anything. What differs
-// is the contents: the four categories are AiraGram's own, drawn with SF
-// Symbols, while the four links reuse AyuGram's artwork so the two LINKS
-// blocks match.
+// is the contents: the categories are AiraGram's own, drawn with SF Symbols,
+// while the four links reuse AyuGram's artwork so the two LINKS blocks match.
 
 public enum AIRSettingsCategory: Int, CaseIterable {
     case profile
     case tabs
+    case messages
     case glass
     case menu
 
@@ -23,20 +23,21 @@ public enum AIRSettingsCategory: Int, CaseIterable {
         switch self {
         case .profile: return airString("CategoryProfile")
         case .tabs: return airString("CategoryTabs")
+        case .messages: return airString("CategoryMessages")
         case .glass: return airString("CategoryGlass")
         case .menu: return airString("CategoryMenu")
         }
     }
 
-    /// SF Symbol names. `cube.transparent` for Liquid Glass is the closest the
-    /// system set gets to "a transparent material"; `dock.rectangle` reads as
-    /// the bottom bar the Tabs category edits.
+    /// SF Symbol names, one clearly different glyph per category so the list
+    /// reads at a glance rather than by title alone.
     var symbolName: String {
         switch self {
-        case .profile: return "person.text.rectangle"
-        case .tabs: return "dock.rectangle"
-        case .glass: return "cube.transparent"
-        case .menu: return "list.bullet.rectangle"
+        case .profile: return "person.crop.rectangle"
+        case .tabs: return "rectangle.grid.1x2"
+        case .messages: return "bubble.left"
+        case .glass: return "drop"
+        case .menu: return "list.dash"
         }
     }
 

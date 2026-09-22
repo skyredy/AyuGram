@@ -191,7 +191,6 @@ swift_library(
         "//submodules/ShareItems:ShareItems",
         "//submodules/ShareItems/Impl:ShareItemsImpl",
         "//submodules/AiraGramUI:AiraGramUI",
-        "//submodules/AiraGramGlass:AiraGramGlass",
         "//submodules/AyuGramUI:AyuGramUI",
         "//submodules/SettingsUI:SettingsUI",
         "//submodules/UrlHandling:UrlHandling",

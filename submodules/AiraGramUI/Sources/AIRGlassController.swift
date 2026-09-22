@@ -3,114 +3,38 @@ import Display
 import TelegramCore
 import AccountContext
 
-// AIR: the "Liquid Glass" category.
+// AIR: the "Liquid Glass" category — where Apple's glass material replaces a
+// solid fill, and nothing else. Message-related settings live in their own
+// "Сообщения" category (AIRMessagesController.swift); "Новый вид профиля"
+// lives in "Профиль" (AIRProfileController.swift), since it is a layout
+// redesign that happens to use glass buttons, not a glass setting itself.
 //
-// The live message preview that belongs at the top of this screen lands with
-// the drawing work; until then the switches are here and they persist, which is
-// what lets the drawing sites be written against real stored state rather than
-// against a constant.
-//
-// `airGlassIsNativelyAvailable` decides only what the footer says. The switches
-// stay usable on every iOS version on purpose: below 26 the drawing sites fall
-// back to a blur, which is a visible effect, not a no-op — a switch that did
-// nothing would deserve to be disabled, and this one does not.
+// `airGlassIsNativelyAvailable` decides only what the footer says. The
+// switches stay usable on every iOS version on purpose: below 26 the drawing
+// sites fall back to a blur, which is a visible effect, not a no-op — a
+// switch that did nothing would deserve to be disabled, and this one does
+// not.
 public func airGlassController(context: AccountContext) -> ViewController {
-    var pushImpl: ((ViewController) -> Void)?
-
     let controller = airListController(context: context, title: airString("CategoryGlass"), sections: { _ in
         let settings = AIRSettingsManager.shared.glass
         var sections: [AIRListSection] = [
-            AIRListSection(id: 0, footer: airString("GlassMessagesInfo"), rows: [
-                AIRListRow(id: 0, title: airString("GlassMessages"), content: .toggle(value: settings.messages, updated: { value in
-                    AIRSettingsManager.shared.updateGlass { $0.messages = value }
-                }))
-            ]),
-            AIRListSection(id: 1, footer: airString("GlassProfileInfo"), rows: [
+            AIRListSection(id: 0, footer: airString("GlassProfileInfo"), rows: [
                 AIRListRow(id: 0, title: airString("GlassProfile"), content: .toggle(value: settings.profile, updated: { value in
                     AIRSettingsManager.shared.updateGlass { $0.profile = value }
                 }))
             ]),
-            AIRListSection(id: 2, footer: airString("GlassBotButtonsInfo"), rows: [
+            AIRListSection(id: 1, footer: airString("GlassBotButtonsInfo"), rows: [
                 AIRListRow(id: 0, title: airString("GlassBotButtons"), content: .toggle(value: settings.botButtons, updated: { value in
                     AIRSettingsManager.shared.updateGlass { $0.botButtons = value }
                 }))
             ])
         ]
         if !airGlassIsNativelyAvailable {
-            sections.append(AIRListSection(id: 3, footer: airString("GlassLegacyNote"), rows: []))
+            sections.append(AIRListSection(id: 2, footer: airString("GlassLegacyNote"), rows: []))
         }
-
-        // AIR: the two full redesigns. Unlike the three switches above, these
-        // do not apply live — see AIRExperimentalUI for why — so the section
-        // that holds them also carries the "restart to apply" notice for as
-        // long as the live value disagrees with what this launch started
-        // with. The notice is a footer rather than a one-shot alert: it
-        // survives leaving and returning to this screen, which a toast would
-        // not, and needs no reference to whatever controller happens to be on
-        // screen when the switch is flipped.
-        sections.append(AIRListSection(
-            id: 4,
-            header: airString("ExperimentalHeader").uppercased(),
-            footer: airString("NewProfileViewInfo"),
-            rows: [
-                // AIR: "Обои" fills the same backdrop slot behind a profile
-                // that this draws a blurred avatar into, so turning one on
-                // turns the other off — there is nowhere for both to go at
-                // once.
-                AIRListRow(id: 0, title: airString("NewProfileView"), content: .toggle(value: settings.newProfileView, updated: { value in
-                    AIRSettingsManager.shared.updateGlass { glass in
-                        glass.newProfileView = value
-                        if value {
-                            glass.wallpaper = false
-                        }
-                    }
-                }))
-            ]
-        ))
-        sections.append(AIRListSection(
-            id: 5,
-            footer: airString("NewMessageMenuInfo"),
-            rows: [
-                AIRListRow(id: 0, title: airString("NewMessageMenu"), content: .toggle(value: settings.newMessageMenu, updated: { value in
-                    AIRSettingsManager.shared.updateGlass { $0.newMessageMenu = value }
-                }))
-            ]
-        ))
-        if AIRExperimentalUI.pendingRestart {
-            sections.append(AIRListSection(id: 6, footer: airString("RestartNeeded"), rows: []))
-        }
-
-        // AIR: "Обои" — applies live, unlike the two redesign switches above,
-        // so no restart notice for this one.
-        sections.append(AIRListSection(
-            id: 7,
-            footer: airString("WallpaperInfo"),
-            rows: [
-                AIRListRow(id: 0, title: airString("Wallpaper"), content: .toggle(value: settings.wallpaper, updated: { value in
-                    AIRSettingsManager.shared.updateGlass { glass in
-                        glass.wallpaper = value
-                        if value {
-                            glass.newProfileView = false
-                        }
-                    }
-                })),
-                AIRListRow(
-                    id: 1,
-                    title: airString("WallpaperConfigure"),
-                    content: .disclosure(value: "", action: {
-                        pushImpl?(airWallpaperController(context: context))
-                    }),
-                    enabled: settings.wallpaper
-                )
-            ]
-        ))
-
         return sections
     })
 
-    pushImpl = { [weak controller] c in
-        controller?.push(c)
-    }
     return controller
 }
 

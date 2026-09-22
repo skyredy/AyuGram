@@ -143,6 +143,11 @@ public final class AIRPercentSliderItemNode: ListViewItemNode, ItemListItemNode 
             sliderView.maximumTrackTintColor = item.theme.list.itemSwitchColors.frameColor
         }
         sliderView.addTarget(self, action: #selector(self.sliderValueChanged), for: .valueChanged)
+        // AIR: without this, a horizontal drag that starts on the slider can
+        // be claimed by the screen's own interactive-pop/back gesture instead
+        // — same fix AyuGram's own AYGSlideChooseItem/AYGMaxFileSizeItem
+        // sliders already carry.
+        sliderView.disablesInteractiveTransitionGestureRecognizer = true
         self.view.addSubview(sliderView)
         self.sliderView = sliderView
 

@@ -13,11 +13,12 @@ public var airSettingsRowTitle: String { airString("SettingsRowTitle") }
 
 /// Every address the section links to, in one place.
 ///
-/// These are placeholders until the channels exist. They are gathered here
-/// rather than spelled out at the call sites so that filling them in later is
-/// one edit to one file, not a search across the module.
+/// Gathered here rather than spelled out at the call sites so that changing
+/// one later is one edit to one file, not a search across the module. The
+/// chat/translation/documentation addresses are still placeholders until
+/// those exist.
 public enum AIRAddresses {
-    public static let channelUsername = "airagrama"
+    public static let channelUsername = "seducteura"
     public static let chatUsername = "airagramchat"
     public static let translationsURL = "https://crowdin.com/project/airagram"
     public static let documentationURL = "https://airagram.one"

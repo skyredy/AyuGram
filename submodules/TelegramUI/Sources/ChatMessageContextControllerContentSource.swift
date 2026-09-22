@@ -30,10 +30,7 @@ final class ChatMessageContextLocationContentSource: ContextLocationContentSourc
 final class ChatMessageContextExtractedContentSource: ContextExtractedContentSource {
     let keepInPlace: Bool = false
     let ignoreContentTouches: Bool = false
-    // AIR: "Новое меню сообщений" drops the dimming blur behind the menu — the
-    // message stands on the plain chat background instead. Frozen at launch,
-    // like the rest of this redesign; see AIRExperimentalUI.
-    var blurBackground: Bool { !AIRExperimentalUI.newMessageMenuActive }
+    let blurBackground: Bool = true
     let centerVertically: Bool
     let keepDefaultContentTouches: Bool
     

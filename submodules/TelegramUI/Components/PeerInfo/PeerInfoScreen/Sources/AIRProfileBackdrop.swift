@@ -5,7 +5,6 @@ import SwiftSignalKit
 import TelegramCore
 import AccountContext
 import AvatarNode
-import AiraGramUI
 
 // AIR: "Новый вид профиля" — a blurred copy of the avatar filling the whole
 // screen behind the profile's scrollable content.
@@ -80,24 +79,10 @@ final class AIRProfileBackdropView: UIView {
 }
 
 enum AIRProfileBackdrop {
-    /// `nil` when both "Обои" and "Новый вид профиля" are off, or there is
-    /// nothing to show full screen either way — the caller drops the
-    /// backdrop view entirely rather than showing it empty.
-    ///
-    /// The two features are mutually exclusive by construction (the Liquid
-    /// Glass screen turns one off when the other turns on), so checking
-    /// "Обои" first and falling through to the blurred avatar is never
-    /// actually a real choice between the two at once — it just means this
-    /// function does not need to know which one a caller expects.
+    /// `nil` when "Новый вид профиля" is off, or there is nothing to show
+    /// full screen either way — the caller drops the backdrop view entirely
+    /// rather than showing it empty.
     static func imageSignal(context: AccountContext, peer: EnginePeer, size: CGSize) -> Signal<UIImage?, NoError>? {
-        if AIRSettingsManager.shared.glass.wallpaper {
-            let peerId = peer.id.id._internalGetInt64Value()
-            guard let image = AIRProfileWallpaperStore.shared.image(forPeerId: peerId) else {
-                return nil
-            }
-            return .single(image)
-        }
-
         guard AIRExperimentalUI.newProfileViewActive, peer.largeProfileImage != nil else {
             return nil
         }

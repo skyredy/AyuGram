@@ -147,25 +147,18 @@ public struct AIRGlassSettings: Codable, Equatable {
     /// round glass action buttons with no text label. Applies on next launch —
     /// see `AIRExperimentalUI`.
     public var newProfileView: Bool
-    /// The redesigned message long-press menu: no dimming blur, Select/Copy/
-    /// Delete merged into one row of black glass icons, Reply/Pin/Forward kept
-    /// as their own rows, a larger reaction strip. Applies on next launch.
+    /// Reorders the message long-press menu: Select/Copy/Delete moved up to
+    /// sit right under Reply/Pin/Forward, at the top. Applies live — a
+    /// context menu is rebuilt fresh on every long-press, so there is no
+    /// stale view state a restart would need to guard against.
     public var newMessageMenu: Bool
-    /// "Обои" — a picture the viewer chose stands in for `newProfileView`'s
-    /// blurred-avatar backdrop. The two occupy the same slot behind a
-    /// profile, so only one is ever active; whichever screen writes one
-    /// switches the other off. Applies live — see `AIRProfileWallpaperStore`,
-    /// not `AIRExperimentalUI`, since nothing about it is read at
-    /// controller-construction time the way the avatar-expansion flag is.
-    public var wallpaper: Bool
 
-    public init(messages: Bool = false, profile: Bool = false, botButtons: Bool = false, newProfileView: Bool = false, newMessageMenu: Bool = false, wallpaper: Bool = false) {
+    public init(messages: Bool = false, profile: Bool = false, botButtons: Bool = false, newProfileView: Bool = false, newMessageMenu: Bool = false) {
         self.messages = messages
         self.profile = profile
         self.botButtons = botButtons
         self.newProfileView = newProfileView
         self.newMessageMenu = newMessageMenu
-        self.wallpaper = wallpaper
     }
 
     public static let `default` = AIRGlassSettings()
@@ -184,7 +177,6 @@ public struct AIRGlassSettings: Codable, Equatable {
         self.botButtons = try container.decodeIfPresent(Bool.self, forKey: .botButtons) ?? fallback.botButtons
         self.newProfileView = try container.decodeIfPresent(Bool.self, forKey: .newProfileView) ?? fallback.newProfileView
         self.newMessageMenu = try container.decodeIfPresent(Bool.self, forKey: .newMessageMenu) ?? fallback.newMessageMenu
-        self.wallpaper = try container.decodeIfPresent(Bool.self, forKey: .wallpaper) ?? fallback.wallpaper
     }
 }
 

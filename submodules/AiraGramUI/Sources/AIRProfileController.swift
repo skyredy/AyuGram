@@ -15,7 +15,8 @@ import AccountContext
 public func airProfileController(context: AccountContext) -> ViewController {
     return airListController(context: context, title: airString("CategoryProfile"), sections: { _ in
         let settings = AIRSettingsManager.shared.profile
-        return [
+        let glass = AIRSettingsManager.shared.glass
+        var sections: [AIRListSection] = [
             AIRListSection(id: 0, footer: airString("ProfileShowIdInfo"), rows: [
                 AIRListRow(id: 0, title: airString("ProfileShowId"), content: .toggle(value: settings.showAccountId, updated: { value in
                     AIRSettingsManager.shared.updateProfile { $0.showAccountId = value }
@@ -55,7 +56,25 @@ public func airProfileController(context: AccountContext) -> ViewController {
                 AIRListRow(id: 0, title: airString("ProfileLastSeen"), content: .toggle(value: settings.showLastSeenEstimate, updated: { value in
                     AIRSettingsManager.shared.updateProfile { $0.showLastSeenEstimate = value }
                 }))
-            ])
+            ]),
+            // AIR: the one full redesign left. Unlike every switch above, this
+            // does not apply live — see AIRExperimentalUI for why — so this
+            // section also carries the "restart to apply" notice for as long
+            // as the live value disagrees with what this launch started with.
+            AIRListSection(
+                id: 8,
+                header: airString("ExperimentalHeader").uppercased(),
+                footer: airString("NewProfileViewInfo"),
+                rows: [
+                    AIRListRow(id: 0, title: airString("NewProfileView"), content: .toggle(value: glass.newProfileView, updated: { value in
+                        AIRSettingsManager.shared.updateGlass { $0.newProfileView = value }
+                    }))
+                ]
+            )
         ]
+        if AIRExperimentalUI.pendingRestart {
+            sections.append(AIRListSection(id: 9, footer: airString("RestartNeeded"), rows: []))
+        }
+        return sections
     })
 }

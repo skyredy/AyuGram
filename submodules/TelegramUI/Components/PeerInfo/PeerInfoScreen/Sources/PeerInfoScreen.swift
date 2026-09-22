@@ -113,7 +113,6 @@ import PeerMessagesMediaPlaylist
 import EdgeEffect
 import Pasteboard
 import AccountPeerContextItem
-import AiraGramUI
 
 public enum PeerInfoAvatarEditingMode {
     case generic
@@ -332,7 +331,6 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
     // of `init` below.
     private var airFactsObserver: NSObjectProtocol?
     private var airChatCreationDateObserver: NSObjectProtocol?
-    private var airWallpaperObserver: NSObjectProtocol?
 
     // AIR: "Новый вид профиля" full-screen backdrop — see
     // AIRProfileBackdrop.swift. `airBackdropRepresentation` is what the last
@@ -2694,8 +2692,8 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
                 return
             }
             self.requestLayout(animated: false)
-            // Covers "Обои" and "Новый вид профиля" being flipped — neither
-            // changes the peer's own avatar, so the plain equality guard in
+            // Covers "Новый вид профиля" being flipped — it does not change
+            // the peer's own avatar, so the plain equality guard in
             // `airUpdateBackdrop` would otherwise skip the refetch entirely.
             self.airUpdateBackdrop(peer: self.data?.peer, forceRefresh: true)
         }
@@ -2706,27 +2704,14 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
         ) { [weak self] _ in
             self?.requestLayout(animated: false)
         }
-        self.airWallpaperObserver = NotificationCenter.default.addObserver(
-            forName: AIRProfileWallpaperStore.updatedNotification,
-            object: nil,
-            queue: OperationQueue.main
-        ) { [weak self] _ in
-            guard let self else {
-                return
-            }
-            self.airUpdateBackdrop(peer: self.data?.peer, forceRefresh: true)
-        }
     }
-    
+
     deinit {
         if let airFactsObserver = self.airFactsObserver {
             NotificationCenter.default.removeObserver(airFactsObserver)
         }
         if let airChatCreationDateObserver = self.airChatCreationDateObserver {
             NotificationCenter.default.removeObserver(airChatCreationDateObserver)
-        }
-        if let airWallpaperObserver = self.airWallpaperObserver {
-            NotificationCenter.default.removeObserver(airWallpaperObserver)
         }
         self.airBackdropDisposable?.dispose()
         self.dataDisposable?.dispose()
@@ -2953,11 +2938,10 @@ final class PeerInfoScreenNode: ViewControllerTracingNode, PeerInfoScreenNodePro
 
     // AIR: (re)requests the backdrop only when something it would be built
     // from actually changed — `updateData` runs on plenty of updates
-    // (presence, notification settings, …) that have nothing to do with
-    // either the photo or "Обои". `forceRefresh` is for the two things that
-    // change what should be drawn without changing the peer's own avatar at
-    // all: flipping the "Обои" / "Новый вид профиля" switches, and a
-    // wallpaper picture itself being set or removed.
+    // (presence, notification settings, …) that have nothing to do with the
+    // photo. `forceRefresh` is for flipping the "Новый вид профиля" switch
+    // itself, which changes what should be drawn without changing the
+    // peer's own avatar at all.
     private func airUpdateBackdrop(peer: EnginePeer?, forceRefresh: Bool = false) {
         let representation = peer?.largeProfileImage
         guard forceRefresh || representation != self.airBackdropRepresentation else {

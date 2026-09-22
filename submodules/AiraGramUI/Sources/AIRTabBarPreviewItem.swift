@@ -94,6 +94,16 @@ public final class AIRTabBarPreviewItemNode: ListViewItemNode, ItemListItemNode 
 
     private func update(item: AIRTabBarPreviewItem, params: ListViewItemLayoutParams, contentSize: CGSize) {
         let sideInset: CGFloat = 20.0 + params.leftInset
+        // AIR: `forceUpdate: true` — `TabBarComponent`'s own `Equatable`
+        // conformance has no idea `AIRSettingsManager.shared.tabs.height/
+        // widthFactor` exist, since `TabBarComponent` reads them itself,
+        // internally, rather than taking them as a property. Without this,
+        // `ComponentView.update` sees an `==` component (same items, same
+        // theme — nothing about the *size* sliders is in its stored
+        // properties) and skips re-running the component's own layout
+        // entirely, so dragging Высота/Ширина never touched this preview.
+        // The real bar does not need this: its own `selectedId` changes on
+        // every tab switch, which already forces a non-equal component.
         let size = self.tabBarView.update(
             transition: .immediate,
             component: AnyComponent(TabBarComponent(
@@ -105,6 +115,7 @@ public final class AIRTabBarPreviewItemNode: ListViewItemNode, ItemListItemNode 
                 outerInsets: UIEdgeInsets(top: 0.0, left: sideInset, bottom: 0.0, right: sideInset)
             )),
             environment: {},
+            forceUpdate: true,
             containerSize: CGSize(width: params.width - sideInset * 2.0, height: 100.0)
         )
 

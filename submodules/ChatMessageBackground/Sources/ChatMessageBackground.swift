@@ -578,6 +578,19 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
     public var maskView: UIImageView?
     private var fixedMaskMode: Bool?
 
+    // AIR: "Стекло на сообщениях" — see AIRGlass.swift. `ChatMessageBackground`
+    // in this same file only draws bubble artwork when `maskMode` is off; a
+    // real chat bubble always runs `maskMode` on (`ChatMessageBubbleItemNode
+    // .swift`) and gets its fill from `backgroundContent` here instead, which
+    // is why glass has to attach here, not there.
+    private var airGlassView: AIRBubbleGlassView?
+    /// What the glass view was last asked to show — `setType` is the only
+    /// place that knows the mask image and dark flag; the frame/updateFrame
+    /// paths below change size without going through it, and need something
+    /// to replay when they reposition the glass.
+    private var airGlassMaskImage: UIImage?
+    private var airGlassIsDark: Bool = false
+
     private var absolutePosition: (CGRect, CGSize)?
     
     public var overrideMask: Bool = false {
@@ -607,6 +620,7 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
                     backgroundContent.update(rect: backgroundFrame, within: containerSize, transition: .immediate)
                 }
             }
+            self.airLayoutGlass(transition: .immediate)
         }
     }
     
@@ -703,9 +717,58 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
             if let maskView = self.maskView {
                 maskView.image = self.overrideMask ? nil : bubbleMaskForType(type, graphics: essentialGraphics)
             }
+
+            self.airUpdateGlass(maskImage: self.maskView?.image, isDark: essentialGraphics.airIsDark, transition: .immediate)
         }
     }
-        
+
+    /// Adds, updates or removes the glass layer over `backgroundContent`.
+    ///
+    /// Reuses `AIRBubbleGlassView` exactly as `ChatMessageBackground` does:
+    /// the bubble-shaped mask image (`bubbleMaskForType`, the same artwork
+    /// `self.maskView` already wears as a real `UIView.mask`) doubles as the
+    /// alpha mask that gives the glass its shape, so no second masking
+    /// mechanism is needed. `backgroundContent` is dimmed rather than hidden
+    /// underneath, same reasoning as the sibling class: an edgeless glass
+    /// bubble on a busy wallpaper is unreadable.
+    private func airUpdateGlass(maskImage: UIImage?, isDark: Bool, transition: ContainedViewLayoutTransition) {
+        self.airGlassMaskImage = maskImage
+        self.airGlassIsDark = isDark
+
+        guard airMessageGlassEnabled, maskImage != nil, self.backgroundContent != nil else {
+            if let glassView = self.airGlassView {
+                glassView.removeFromSuperview()
+                self.airGlassView = nil
+            }
+            self.backgroundContent?.alpha = 1.0
+            return
+        }
+
+        let glassView: AIRBubbleGlassView
+        if let current = self.airGlassView {
+            glassView = current
+        } else {
+            glassView = AIRBubbleGlassView()
+            self.airGlassView = glassView
+            self.view.addSubview(glassView)
+        }
+
+        glassView.frame = self.bounds
+        glassView.update(size: self.bounds.size, image: maskImage, isDark: isDark, transition: transition)
+        self.backgroundContent?.alpha = 0.25
+    }
+
+    /// Re-applies whatever glass state is already active at the current
+    /// frame — for the frame/updateFrame paths below, which change size
+    /// without going through `setType`.
+    private func airLayoutGlass(transition: ContainedViewLayoutTransition) {
+        guard let airGlassView = self.airGlassView else {
+            return
+        }
+        airGlassView.frame = self.bounds
+        airGlassView.update(size: self.bounds.size, image: self.airGlassMaskImage, isDark: self.airGlassIsDark, transition: transition)
+    }
+
     public func update(rect: CGRect, within containerSize: CGSize, transition: ContainedViewLayoutTransition = .immediate) {
         self.absolutePosition = (rect, containerSize)
         if let backgroundContent = self.backgroundContent {
@@ -737,11 +800,15 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
                 backgroundContent.update(rect: backgroundFrame, within: containerSize, animator: animator)
             }
         }
+        if let airGlassView = self.airGlassView {
+            animator.updateFrame(layer: airGlassView.layer, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: value.size.width, height: value.size.height)), completion: nil)
+            airGlassView.update(size: value.size, image: self.airGlassMaskImage, isDark: self.airGlassIsDark, transition: .immediate)
+        }
         animator.updateFrame(layer: self.layer, frame: value, completion: { _ in
             completion()
         })
     }
-    
+
     public func updateFrame(_ value: CGRect, transition: ContainedViewLayoutTransition, completion: @escaping () -> Void = {}) {
         if let maskView = self.maskView {
             transition.updateFrame(view: maskView, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: value.size.width, height: value.size.height)).insetBy(dx: -maskInset, dy: -maskInset))
@@ -754,6 +821,10 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
                 backgroundFrame.origin.y += rect.minY
                 backgroundContent.update(rect: backgroundFrame, within: containerSize, transition: transition)
             }
+        }
+        if let airGlassView = self.airGlassView {
+            transition.updateFrame(view: airGlassView, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: value.size.width, height: value.size.height)))
+            airGlassView.update(size: value.size, image: self.airGlassMaskImage, isDark: self.airGlassIsDark, transition: transition)
         }
         transition.updateFrame(node: self, frame: value, completion: { _ in
             completion()
@@ -772,6 +843,10 @@ public final class ChatMessageBubbleBackdrop: ASDisplayNode {
                 backgroundFrame.origin.y += rect.minY
                 backgroundContent.update(rect: backgroundFrame, within: containerSize, transition: transition)
             }
+        }
+        if let airGlassView = self.airGlassView {
+            transition.updateFrame(layer: airGlassView.layer, frame: CGRect(origin: CGPoint(x: 0.0, y: 0.0), size: CGSize(width: value.size.width, height: value.size.height)))
+            airGlassView.update(size: value.size, image: self.airGlassMaskImage, isDark: self.airGlassIsDark, transition: .immediate)
         }
         transition.updateFrame(layer: self.layer, frame: value, completion: { _ in
             completion()

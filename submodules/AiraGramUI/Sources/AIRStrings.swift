@@ -56,6 +56,7 @@ private let airStringsRu: [String: String] = [
     // Categories
     "CategoryProfile": "Профиль",
     "CategoryTabs": "Вкладки",
+    "CategoryMessages": "Сообщения",
     "CategoryGlass": "Liquid Glass",
     "CategoryMenu": "Разделы меню",
 
@@ -117,21 +118,8 @@ private let airStringsRu: [String: String] = [
     "NewProfileView": "Новый вид профиля",
     "NewProfileViewInfo": "Фото профиля становится во весь экран, а под ним — размытая подложка из этого же фото. Кнопки звонка, поиска и остальных действий становятся круглыми и стеклянными.",
     "NewMessageMenu": "Новое меню сообщений",
-    "NewMessageMenuInfo": "Меню при долгом нажатии на сообщение без размытия фона. Выбрать, Скопировать и Удалить собраны в один ряд круглых кнопок, крупнее панель реакций.",
+    "NewMessageMenuInfo": "Выбрать, Скопировать и Удалить поднимаются наверх меню, сразу под Ответить, Закрепить и Переслать. Остальные пункты остаются на своих местах.",
     "RestartNeeded": "Изменения применятся после перезапуска AiraGram. Закрой приложение и открой заново.",
-
-    "Wallpaper": "Обои",
-    "WallpaperInfo": "Вместо размытого фото профиля показывает картинку, которую ты сам выбрал. Включается вместо «Нового вида профиля» — вместе они не работают.",
-    "WallpaperConfigure": "Настроить обои",
-    "WallpaperOwnHeader": "Твой профиль",
-    "WallpaperOwnInfo": "Эта картинка видна только тебе, когда ты открываешь своё собственное фото профиля.",
-    "WallpaperGeneralHeader": "Все остальные",
-    "WallpaperGeneralInfo": "Показывается у всех, кому ты не назначил картинку отдельно. Назначить кому-то отдельную картинку можно из его профиля, в меню «Ещё».",
-    "WallpaperChoose": "Выбрать картинку",
-    "WallpaperChange": "Заменить картинку",
-    "WallpaperRemove": "Убрать картинку",
-    "WallpaperSetForPerson": "Обои для профиля",
-    "WallpaperChangeForPerson": "Заменить обои профиля",
 
     // Facts shown in a profile
     "FactId": "ID",
@@ -157,6 +145,7 @@ private let airStringsEn: [String: String] = [
     // Categories
     "CategoryProfile": "Profile",
     "CategoryTabs": "Tabs",
+    "CategoryMessages": "Messages",
     "CategoryGlass": "Liquid Glass",
     "CategoryMenu": "Menu sections",
 
@@ -218,21 +207,8 @@ private let airStringsEn: [String: String] = [
     "NewProfileView": "New profile view",
     "NewProfileViewInfo": "The profile photo fills the whole screen, with a blurred copy of it behind everything below. The call, search and other action buttons become round and glass.",
     "NewMessageMenu": "New message menu",
-    "NewMessageMenuInfo": "The long-press menu with no background blur. Select, Copy and Delete are merged into one row of round buttons, and the reaction strip is bigger.",
+    "NewMessageMenuInfo": "Select, Copy and Delete move to the top of the menu, right under Reply, Pin and Forward. Everything else stays where it was.",
     "RestartNeeded": "Changes apply after AiraGram restarts. Close the app and open it again.",
-
-    "Wallpaper": "Wallpaper",
-    "WallpaperInfo": "Shows a picture you chose instead of the blurred profile photo. Turns on in place of \"New profile view\" — the two do not work together.",
-    "WallpaperConfigure": "Set up wallpaper",
-    "WallpaperOwnHeader": "Your profile",
-    "WallpaperOwnInfo": "This picture is visible only to you, when you open your own profile photo.",
-    "WallpaperGeneralHeader": "Everyone else",
-    "WallpaperGeneralInfo": "Shown for anyone you have not picked a picture for specifically. You can pick one for someone from their own profile, in the \"More\" menu.",
-    "WallpaperChoose": "Choose a picture",
-    "WallpaperChange": "Change picture",
-    "WallpaperRemove": "Remove picture",
-    "WallpaperSetForPerson": "Profile wallpaper",
-    "WallpaperChangeForPerson": "Change profile wallpaper",
 
     // Facts shown in a profile
     "FactId": "ID",

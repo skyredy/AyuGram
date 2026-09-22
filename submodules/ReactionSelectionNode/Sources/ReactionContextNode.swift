@@ -1275,14 +1275,9 @@ public final class ReactionContextNode: ASDisplayNode, ASScrollViewDelegate {
         let externalSideInset: CGFloat = 4.0
         let sideInset: CGFloat = 6.0
         let itemSpacing: CGFloat = 8.0
-        // AIR: "Новое меню сообщений" makes the reaction strip noticeably
-        // bigger. Only this constant changes — everything below (row count,
-        // content width, the expand button) is already a formula in terms of
-        // it, not a second hardcoded number, so the rest of the strip should
-        // stay proportionate without its own edit.
-        var itemSize: CGFloat = AIRExperimentalUI.newMessageMenuActive ? 64.0 : 36.0
+        var itemSize: CGFloat = 36.0
         let verticalInset: CGFloat = 13.0
-        let rowHeight: CGFloat = AIRExperimentalUI.newMessageMenuActive ? 54.0 : 30.0
+        let rowHeight: CGFloat = 30.0
         
         var itemCount: Int
         var visibleContentWidth: CGFloat

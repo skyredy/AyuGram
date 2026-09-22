@@ -2500,7 +2500,7 @@ func contextMenuForChatPresentationInterfaceState(chatPresentationInterfaceState
             }
         }
         
-        // AIR: "Новое меню сообщений" — see AIRMessageMenuIconRow.swift. Pure
+        // AIR: "Новое меню сообщений" — see AIRMessageMenuOrder.swift. Pure
         // post-processing on the finished list; every gate above that decided
         // what belongs in `actions` already ran.
         return ContextController.Items(content: .list(airRestructuredMessageMenuActions(actions, strings: chatPresentationInterfaceState.strings)), tip: nil)

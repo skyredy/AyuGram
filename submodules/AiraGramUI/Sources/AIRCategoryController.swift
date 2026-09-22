@@ -13,6 +13,8 @@ public func airCategoryController(context: AccountContext, category: AIRSettings
         return airProfileController(context: context)
     case .tabs:
         return airTabsController(context: context)
+    case .messages:
+        return airMessagesController(context: context)
     case .glass:
         return airGlassController(context: context)
     case .menu:
